@@ -90,11 +90,9 @@ public class ClientTickHandler {
 
     public static void checkClientWeather() {
         try {
-            if (weatherManager == null) {
-                init(
-                    FMLClientHandler.instance()
-                        .getClient().theWorld);
-            }
+            checkClientWeather(
+                FMLClientHandler.instance()
+                    .getClient().theWorld);
         } catch (Exception var1) {
             System.out.println(
                 "Warning, Weather2 weatherManager init failed for some reason, printing stacktrace, report to https://github.com/Corosauce/weather2/issues");
@@ -103,8 +101,18 @@ public class ClientTickHandler {
 
     }
 
+    static void checkClientWeather(World world) {
+        if (world != null && (weatherManager == null || lastWorld != world)) {
+            setClientWorld(world);
+        }
+    }
+
     public static void init(World world) {
         Weather.dbg("Initializing WeatherManagerClient for client world");
+        setClientWorld(world);
+    }
+
+    private static void setClientWorld(World world) {
         lastWorld = world;
         weatherManager = new WeatherManagerClient(world.provider.dimensionId);
     }

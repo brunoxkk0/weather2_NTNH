@@ -8,7 +8,6 @@ import java.util.Random;
 import java.util.Set;
 
 import net.minecraft.block.Block;
-import net.minecraft.block.material.Material;
 import net.minecraft.block.material.MaterialLiquid;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.entity.EntityClientPlayerMP;
@@ -17,16 +16,12 @@ import net.minecraft.entity.Entity;
 import net.minecraft.entity.EntityLivingBase;
 import net.minecraft.entity.passive.EntitySquid;
 import net.minecraft.entity.player.EntityPlayer;
-import net.minecraft.init.Blocks;
 import net.minecraft.nbt.NBTTagCompound;
 import net.minecraft.util.MathHelper;
 import net.minecraft.util.Vec3;
-import net.minecraft.world.EnumSkyBlock;
 import net.minecraft.world.World;
 import net.minecraft.world.biome.BiomeGenBase;
-import net.minecraft.world.chunk.Chunk;
 
-import CoroUtil.util.ChunkCoordinatesBlock;
 import CoroUtil.util.CoroUtilBlock;
 import CoroUtil.util.CoroUtilEntity;
 import cpw.mods.fml.common.FMLCommonHandler;
@@ -38,6 +33,8 @@ import extendedrenderer.particle.behavior.ParticleBehaviorFog;
 import extendedrenderer.particle.entity.EntityRotFX;
 import weather2.ServerTickHandler;
 import weather2.Weather;
+import weather2.api.event.TornadoEndReason;
+import weather2.api.event.TornadoOrigin;
 import weather2.client.entity.RenderCubeCloud;
 import weather2.config.ConfigMisc;
 import weather2.entity.EntityIceBall;
@@ -117,6 +114,15 @@ public class StormObject {
     public boolean naturallySpawned;
     public boolean canSnowFromCloudTemperature;
     public boolean alwaysProgresses;
+    public boolean pullPlayers;
+    public boolean pullLivingEntities;
+    public boolean controlledTornado;
+    public int tornadoRemainingTicks;
+    public boolean tornadoActive;
+    public boolean tornadoEndPending;
+    public TornadoEndReason tornadoEndReason;
+    public boolean tornadoFormationPending;
+    public boolean tornadoFormationVetoed;
     public boolean isDead;
     @SideOnly(Side.CLIENT)
     public RenderCubeCloud renderBlock;
@@ -156,6 +162,15 @@ public class StormObject {
         this.naturallySpawned = true;
         this.canSnowFromCloudTemperature = false;
         this.alwaysProgresses = false;
+        this.pullPlayers = false;
+        this.pullLivingEntities = false;
+        this.controlledTornado = false;
+        this.tornadoRemainingTicks = 0;
+        this.tornadoActive = false;
+        this.tornadoEndPending = false;
+        this.tornadoEndReason = null;
+        this.tornadoFormationPending = false;
+        this.tornadoFormationVetoed = false;
         this.isDead = false;
         this.ticksSinceLastPacketReceived = 0L;
         this.manager = parManager;
@@ -169,7 +184,11 @@ public class StormObject {
     }
 
     public void initFirstTime() {
-        this.ID = (long) (lastUsedStormID++);
+        if (!hasAvailableStormID()) {
+            throw new IllegalStateException("Weather2 storm ID space is exhausted");
+        }
+
+        this.ID = lastUsedStormID++;
         BiomeGenBase bgb = this.manager.getWorld()
             .getBiomeGenForCoords(MathHelper.floor_double(this.pos.xCoord), MathHelper.floor_double(this.pos.zCoord));
         float temp = 1.0F;
@@ -219,16 +238,51 @@ public class StormObject {
         return this.levelCurIntensityStage >= STATE_STAGE5;
     }
 
+    public boolean isPendingTornadoRemoval() {
+        return this.tornadoEndPending && this.tornadoEndReason != TornadoEndReason.NATURAL;
+    }
+
+    public static boolean hasAvailableStormID() {
+        return lastUsedStormID >= 0L && lastUsedStormID < Long.MAX_VALUE;
+    }
+
+    public static void observeLoadedStormID(long id) {
+        if (id >= 0L && (lastUsedStormID < 0L || id >= lastUsedStormID)) {
+            lastUsedStormID = id == Long.MAX_VALUE ? Long.MAX_VALUE : id + 1L;
+        }
+    }
+
+    public static void observeSavedStormIds(NBTTagCompound data) {
+        lastUsedStormID = Math.max(0L, Math.max(lastUsedStormID, data.getLong("lastUsedIDStorm")));
+        NBTTagCompound storms = data.getCompoundTag("stormData");
+        for (Object key : storms.func_150296_c()) {
+            NBTTagCompound storm = storms.getCompoundTag((String) key);
+            if (storm.hasKey("ID")) {
+                observeLoadedStormID(storm.getLong("ID"));
+            }
+        }
+    }
+
     public void readFromNBT(NBTTagCompound var1) {
         this.nbtSyncFromServer(var1);
         this.motion = Vec3.createVectorHelper(var1.getDouble("vecX"), var1.getDouble("vecY"), var1.getDouble("vecZ"));
         this.angleIsOverridden = var1.getBoolean("angleIsOverridden");
         this.angleMovementTornadoOverride = var1.getFloat("angleMovementTornadoOverride");
+        if (!var1.hasKey("softTornadoActive")) {
+            this.pullPlayers = false;
+            this.pullLivingEntities = false;
+            this.controlledTornado = false;
+            this.tornadoActive = this.isTornadoFormingOrGreater() || this.isCycloneFormingOrGreater();
+            this.tornadoRemainingTicks = this.tornadoActive ? ConfigMisc.Tornado_DefaultDurationTicks : 0;
+            this.tornadoFormationVetoed = false;
+        } else if (!this.tornadoActive || this.tornadoRemainingTicks <= 0) {
+            this.tornadoActive = false;
+            this.tornadoRemainingTicks = 0;
+        }
     }
 
     public NBTTagCompound writeToNBT() {
-        this.nbtSyncForClient();
-        NBTTagCompound nbt = this.cachedClientNBTState;
+        NBTTagCompound nbt = this.nbtSyncForClient(true);
         nbt.setDouble("vecX", this.motion.xCoord);
         nbt.setDouble("vecY", this.motion.yCoord);
         nbt.setDouble("vecZ", this.motion.zCoord);
@@ -258,16 +312,37 @@ public class StormObject {
         this.stormType = newData.getInteger("stormType");
         this.hasStormPeaked = newData.getBoolean("hasStormPeaked");
         this.isDead = newData.getBoolean("isDead");
+        if (parNBT.hasKey("softPullPlayers")) {
+            this.pullPlayers = parNBT.getBoolean("softPullPlayers");
+        }
+        if (parNBT.hasKey("softPullLivingEntities")) {
+            this.pullLivingEntities = parNBT.getBoolean("softPullLivingEntities");
+        }
+        if (parNBT.hasKey("softControlledTornado")) {
+            this.controlledTornado = parNBT.getBoolean("softControlledTornado");
+        }
+        if (parNBT.hasKey("softTornadoActive")) {
+            this.tornadoActive = parNBT.getBoolean("softTornadoActive");
+        }
+        if (parNBT.hasKey("softFormationVetoed")) {
+            this.tornadoFormationVetoed = parNBT.getBoolean("softFormationVetoed");
+        }
+        if (parNBT.hasKey("softRemainingTicks")) {
+            this.tornadoRemainingTicks = parNBT.getInteger("softRemainingTicks");
+        }
         this.cachedClientNBTState = newData.getNewNBT();
         this.ticksSinceLastPacketReceived = 0L;
     }
 
     public NBTTagCompound nbtSyncForClient() {
+        return this.nbtSyncForClient(false);
+    }
+
+    public NBTTagCompound nbtSyncForClient(boolean fullSync) {
         StormObject.CachedNBTTagCompound data = new StormObject.CachedNBTTagCompound();
         data.setCachedNBT(this.cachedClientNBTState);
-        data.setUpdateForced(true);
+        data.setUpdateForced(fullSync);
         data.setLong("ID", this.ID);
-        data.setUpdateForced(false);
         data.setInteger("posX", (int) this.pos.xCoord);
         data.setInteger("posY", (int) this.pos.yCoord);
         data.setInteger("posZ", (int) this.pos.zCoord);
@@ -284,8 +359,22 @@ public class StormObject {
         data.setInteger("stormType", this.stormType);
         data.setBoolean("hasStormPeaked", this.hasStormPeaked);
         data.setBoolean("isDead", this.isDead);
+        data.setInteger("softVersion", 2);
+        data.setBoolean("softPullPlayers", this.pullPlayers);
+        data.setBoolean("softPullLivingEntities", this.pullLivingEntities);
+        data.setBoolean("softControlledTornado", this.controlledTornado);
+        data.setBoolean("softTornadoActive", this.tornadoActive);
+        data.setBoolean("softFormationVetoed", this.tornadoFormationVetoed);
+        if (fullSync || !data.getCachedNBT()
+            .hasKey("softRemainingTicks")) {
+            data.setInteger("softRemainingTicks", this.tornadoRemainingTicks);
+        }
+        data.setUpdateForced(false);
         this.cachedClientNBTState = data.getCachedNBT();
-        return data.getNewNBT();
+        NBTTagCompound syncData = data.getNewNBT();
+        // Delta caching may omit unchanged IDs, but the packet router needs this key.
+        syncData.setLong("ID", this.ID);
+        return syncData;
     }
 
     public NBTTagCompound nbtForIMC() {
@@ -447,179 +536,7 @@ public class StormObject {
 
     }
 
-    public void tickSnowFall() {
-        if (ConfigMisc.Snow_PerformSnowfall) {
-            if (this.isPrecipitating()) {
-                World world = this.manager.getWorld();
-                long startTime = System.nanoTime();
-                boolean xx = false;
-                boolean zz = false;
-                if (this.size == 0) {
-                    this.size = 1;
-                }
-
-                for (int var27 = (int) (this.pos.xCoord - (double) (this.size / 2)); (double) var27
-                    < this.pos.xCoord + (double) (this.size / 2); var27 += 16) {
-                    for (int var28 = (int) (this.pos.zCoord - (double) (this.size / 2)); (double) var28
-                        < this.pos.zCoord + (double) (this.size / 2); var28 += 16) {
-                        int chunkX = var27 / 16;
-                        int chunkZ = var28 / 16;
-                        int x = chunkX * 16;
-                        int z = chunkZ * 16;
-                        if (world.blockExists(var27, 0, var28)) {
-                            Chunk chunk = world.getChunkFromChunkCoords(chunkX, chunkZ);
-                            if (world.provider.canDoRainSnowIce(chunk) && (ConfigMisc.Snow_RarityOfBuildup == 0
-                                || world.rand.nextInt(ConfigMisc.Snow_RarityOfBuildup) == 0)) {
-                                this.updateLCG = this.updateLCG * 3 + 1013904223;
-                                int i1 = this.updateLCG >> 2;
-                                int xxx = i1 & 15;
-                                int zzz = i1 >> 8 & 15;
-                                double d0 = this.pos.xCoord - (double) (var27 + xxx);
-                                double d2 = this.pos.zCoord - (double) (var28 + zzz);
-                                if ((double) MathHelper.sqrt_double(d0 * d0 + d2 * d2) <= (double) this.size) {
-                                    byte snowMetaMax = 7;
-                                    int setBlockHeight = world.getPrecipitationHeight(xxx + x, zzz + z);
-                                    if (this.canSnowAtBody(xxx + x, setBlockHeight, zzz + z)
-                                        && Blocks.snow.canPlaceBlockAt(world, xxx + x, setBlockHeight, zzz + z)) {
-                                        boolean perform = false;
-                                        Block id = world.getBlock(xxx + x, setBlockHeight, zzz + z);
-                                        int meta = 0;
-                                        int origMeta;
-                                        if (id.getMaterial() == Material.snow) {
-                                            if (ConfigMisc.Snow_ExtraPileUp) {
-                                                meta = world.getBlockMetadata(xxx + x, setBlockHeight, zzz + z);
-                                                if (meta < snowMetaMax) {
-                                                    perform = true;
-                                                    ++meta;
-                                                } else if (ConfigMisc.Snow_MaxBlockBuildupHeight > 1) {
-                                                    int coords = setBlockHeight;
-
-                                                    for (origMeta = 0; origMeta
-                                                        < ConfigMisc.Snow_MaxBlockBuildupHeight; ++origMeta) {
-                                                        Block checkID = world
-                                                            .getBlock(xxx + x, coords + origMeta, zzz + z);
-                                                        if (checkID.getMaterial() == Material.snow) {
-                                                            meta = world
-                                                                .getBlockMetadata(xxx + x, coords + origMeta, zzz + z);
-                                                            if (meta < snowMetaMax) {
-                                                                setBlockHeight = coords + origMeta;
-                                                                perform = true;
-                                                                ++meta;
-                                                                break;
-                                                            }
-                                                        } else if (CoroUtilBlock.isAir(checkID)) {
-                                                            meta = 0;
-                                                            setBlockHeight = coords + origMeta;
-                                                            perform = true;
-                                                            break;
-                                                        }
-                                                    }
-
-                                                    if (origMeta == ConfigMisc.Snow_MaxBlockBuildupHeight) {
-                                                        perform = false;
-                                                    }
-                                                }
-                                            }
-                                        } else {
-                                            perform = true;
-                                        }
-
-                                        if (perform && ConfigMisc.Snow_SmoothOutPlacement) {
-                                            origMeta = Math.max(0, meta - 1);
-                                            if (origMeta > snowMetaMax - 4) {
-                                                ChunkCoordinatesBlock var29 = this.getSnowfallEvenOutAdjustCheck(
-                                                    xxx + x,
-                                                    setBlockHeight,
-                                                    zzz + z,
-                                                    origMeta);
-                                                if (var29.posX != 0 || var29.posZ != 0) {
-                                                    if (meta != var29.meta + 1) {
-                                                        xxx = var29.posX;
-                                                        zzz = var29.posZ;
-                                                        meta = var29.meta + 1;
-                                                    } else {
-                                                        perform = false;
-                                                    }
-                                                }
-                                            }
-                                        }
-
-                                        if (perform) {
-                                            world
-                                                .setBlock(xxx + x, setBlockHeight, zzz + z, Blocks.snow_layer, meta, 3);
-                                        }
-                                    }
-                                }
-                            }
-                        }
-                    }
-                }
-
-            }
-        }
-    }
-
-    public ChunkCoordinatesBlock getSnowfallEvenOutAdjustCheck(int x, int y, int z, int sourceMeta) {
-        ChunkCoordinatesBlock attempt = this.getSnowfallEvenOutAdjust(x - 1, y, z, sourceMeta);
-        if (attempt.posX == 0 && attempt.posZ == 0) {
-            attempt = this.getSnowfallEvenOutAdjust(x + 1, y, z, sourceMeta);
-            if (attempt.posX == 0 && attempt.posZ == 0) {
-                attempt = this.getSnowfallEvenOutAdjust(x, y, z - 1, sourceMeta);
-                if (attempt.posX == 0 && attempt.posZ == 0) {
-                    attempt = this.getSnowfallEvenOutAdjust(x, y, z + 1, sourceMeta);
-                    return attempt.posX == 0 && attempt.posZ == 0 ? new ChunkCoordinatesBlock(0, 0, 0, Blocks.air, 0)
-                        : attempt;
-                } else {
-                    return attempt;
-                }
-            } else {
-                return attempt;
-            }
-        } else {
-            return attempt;
-        }
-    }
-
-    public ChunkCoordinatesBlock getSnowfallEvenOutAdjust(int x, int y, int z, int sourceMeta) {
-        boolean metaToSet = false;
-        World world = this.manager.getWorld();
-        Block checkID = world.getBlock(x, y, z);
-        if (CoroUtilBlock.isAir(checkID)) {
-            Block checkMeta1 = world.getBlock(x, y - 1, z);
-            return CoroUtilBlock.isAir(checkMeta1) ? new ChunkCoordinatesBlock(0, 0, 0, Blocks.air, 0)
-                : new ChunkCoordinatesBlock(x, y, z, Blocks.air, 0);
-        } else if (checkID == Blocks.snow) {
-            int checkMeta = world.getBlockMetadata(x, y, z);
-            return checkMeta < sourceMeta ? new ChunkCoordinatesBlock(x, y, z, checkID, checkMeta)
-                : new ChunkCoordinatesBlock(0, 0, 0, Blocks.air, 0);
-        } else {
-            return new ChunkCoordinatesBlock(0, 0, 0, Blocks.air, 0);
-        }
-    }
-
-    public boolean canSnowAtBody(int par1, int par2, int par3) {
-        World world = this.manager.getWorld();
-        BiomeGenBase biomegenbase = world.getBiomeGenForCoords(par1, par3);
-        if (biomegenbase == null) {
-            return false;
-        } else {
-            biomegenbase.getFloatTemperature(par1, par2, par3);
-            if ((!this.canSnowFromCloudTemperature || this.levelTemperature <= 0.0F)
-                && (this.canSnowFromCloudTemperature || biomegenbase.getFloatTemperature(par1, par2, par3) <= 0.15F)) {
-                if (par2 >= 0 && par2 < 256 && world.getSavedLightValue(EnumSkyBlock.Block, par1, par2, par3) < 10) {
-                    Block block = world.getBlock(par1, par2, par3);
-                    if ((block.isAir(world, par1, par2, par3) || block == Blocks.snow_layer)
-                        && Blocks.snow_layer.canPlaceBlockAt(world, par1, par2, par3)) {
-                        return true;
-                    }
-                }
-
-                return false;
-            } else {
-                return false;
-            }
-        }
-    }
+    public void tickSnowFall() {}
 
     public void tickProgression() {
         World world = this.manager.getWorld();
@@ -723,6 +640,7 @@ public class StormObject {
             int oddsTo1OfIntensityProgressionBase;
             if ((ConfigMisc.overcastMode && this.manager.getWorld()
                 .isRaining() || !ConfigMisc.overcastMode)
+                && !this.controlledTornado
                 && WeatherUtilConfig.listDimensionsStorms
                     .contains(Integer.valueOf(this.manager.getWorld().provider.dimensionId))
                 && tryFormStorm) {
@@ -834,11 +752,17 @@ public class StormObject {
                         && (!ConfigMisc.Storm_NoTornadosOrCyclones || this.levelCurIntensityStage < STATE_FORMING - 1)
                         && this.levelCurStagesIntensity >= var26
                         && (this.alwaysProgresses || rand.nextInt(var28) == 0)) {
+                        boolean formingOceanCyclone = isInOcean && this.levelCurIntensityStage + 1 == STATE_FORMING;
+                        int previousStormType = this.stormType;
+                        if (formingOceanCyclone) {
+                            this.stormType = TYPE_WATER;
+                        }
                         this.stageNext();
                         Weather.dbg("storm ID: " + this.ID + " - growing, stage: " + this.levelCurIntensityStage);
-                        if (isInOcean && this.levelCurIntensityStage == STATE_FORMING) {
+                        if (formingOceanCyclone && this.tornadoActive) {
                             Weather.dbg("storm ID: " + this.ID + " marked as tropical cyclone!");
-                            this.stormType = TYPE_WATER;
+                        } else if (formingOceanCyclone) {
+                            this.stormType = previousStormType;
                         }
                     }
 
@@ -890,7 +814,12 @@ public class StormObject {
     }
 
     public void stageNext() {
-        ++this.levelCurIntensityStage;
+        if (this.controlledTornado && this.tornadoActive) {
+            return;
+        }
+        if (!this.setIntensityStage(this.levelCurIntensityStage + 1, TornadoOrigin.NATURAL)) {
+            return;
+        }
         this.levelCurStagesIntensity = 0.0F;
         if (ConfigMisc.Storm_Tornado_aimAtPlayerOnSpawn && !this.hasStormPeaked
             && this.levelCurIntensityStage == STATE_FORMING) {
@@ -899,9 +828,45 @@ public class StormObject {
 
     }
 
+    public boolean setIntensityStage(int stage, TornadoOrigin origin) {
+        if (this.controlledTornado && this.tornadoActive && stage != this.levelCurIntensityStage) {
+            return false;
+        }
+        this.levelCurIntensityStage = stage;
+        if (stage < STATE_FORMING) {
+            if (this.tornadoActive) {
+                this.endTornadoNaturally();
+            }
+            if (stage == STATE_NORMAL && !this.tornadoActive) {
+                this.tornadoFormationVetoed = false;
+            }
+            return true;
+        }
+        if (this.tornadoActive) {
+            return true;
+        }
+
+        if (this.tornadoFormationVetoed || !(this.manager instanceof WeatherManagerServer)
+            || !((WeatherManagerServer) this.manager).tryActivateTornado(this, origin)) {
+            this.levelCurIntensityStage = STATE_HAIL;
+            this.levelCurStagesIntensity = 1.0F;
+            this.hasStormPeaked = true;
+            this.tornadoFormationVetoed = true;
+            return false;
+        }
+        return true;
+    }
+
     public void stagePrev() {
+        if (this.controlledTornado && this.tornadoActive) {
+            return;
+        }
+        int oldStage = this.levelCurIntensityStage;
         --this.levelCurIntensityStage;
         this.levelCurStagesIntensity = 1.0F;
+        if (oldStage >= STATE_FORMING && this.levelCurIntensityStage < STATE_FORMING && this.tornadoActive) {
+            this.endTornadoNaturally();
+        }
     }
 
     public void initRealStorm(EntityPlayer entP, StormObject stormToAbsorb) {
@@ -918,8 +883,11 @@ public class StormObject {
         this.attrib_precipitation = true;
         if (stormToAbsorb != null) {
             Weather.dbg("stormfront collision happened between ID " + this.ID + " and " + stormToAbsorb.ID);
-            this.manager.removeStormObject(stormToAbsorb.ID);
-            ((WeatherManagerServer) this.manager).syncStormRemove(stormToAbsorb);
+            if (this.manager instanceof WeatherManagerServer) {
+                ((WeatherManagerServer) this.manager).removeStormSafely(stormToAbsorb.ID);
+            } else {
+                this.manager.removeStormObject(stormToAbsorb.ID);
+            }
         } else {
             Weather.dbg("ocean storm happened, ID " + this.ID);
         }
@@ -959,8 +927,21 @@ public class StormObject {
 
     public void setNoStorm() {
         Weather.dbg("storm ID: " + this.ID + " - ended storm event");
+        if (this.tornadoActive) {
+            this.endTornadoNaturally();
+        }
         this.levelCurIntensityStage = STATE_NORMAL;
         this.levelCurStagesIntensity = 0.0F;
+        this.tornadoFormationVetoed = false;
+    }
+
+    private void endTornadoNaturally() {
+        if (this.manager instanceof WeatherManagerServer) {
+            ((WeatherManagerServer) this.manager).endTornado(this.ID, TornadoEndReason.NATURAL);
+        } else {
+            this.tornadoActive = false;
+            this.tornadoRemainingTicks = 0;
+        }
     }
 
     @SideOnly(Side.CLIENT)
@@ -1341,6 +1322,10 @@ public class StormObject {
     }
 
     public void spinEntity(Entity entity1) {
+        if (entity1 instanceof EntityLivingBase && !this.shouldPull(entity1)) {
+            return;
+        }
+
         WeatherEntityConfig conf = this.getWeatherEntityConfigForStorm();
         Random rand = new Random();
         boolean forTornado = true;
@@ -1502,6 +1487,14 @@ public class StormObject {
         entity1.getEntityData()
             .setLong("lastPullTime", entity1.worldObj.getTotalWorldTime());
         this.setVel(entity1, -moveX, pullY, moveZ);
+        if (!entity1.worldObj.isRemote && entity1 instanceof EntityPlayer) {
+            WeatherUtilEntity.markTornadoPull((EntityPlayer) entity1);
+        }
+    }
+
+    public boolean shouldPull(Entity entity) {
+        return entity instanceof EntityPlayer ? this.pullPlayers
+            : entity instanceof EntityLivingBase && this.pullLivingEntities;
     }
 
     public void setVel(Entity entity, float f, float f1, float f2) {

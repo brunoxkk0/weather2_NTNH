@@ -1,13 +1,11 @@
 package weather2.harness;
 
 import weather2.climate.ClimateProfileRegistry;
-import weather2.compat.WeatherNTNHHooks;
 import weather2.integration.IntegrationManager;
-import weather2.integration.hbm.HbmSpaceAdapter;
 
 /**
- * Headless test environment controller for Weather2 in NTNH.
- * Allows simulating vanilla, complete NTNH modpack, or degraded/failing states in tests.
+ * Headless test environment controller for Weather2.
+ * Allows simulating vanilla, compatible-mod, or degraded states in tests.
  */
 public final class TestEnvironment {
 
@@ -26,31 +24,22 @@ public final class TestEnvironment {
         MockBlockFactory.initVanillaBlocks();
         IntegrationManager.resetCache();
         ClimateProfileRegistry.reset();
-        HbmSpaceAdapter.resetForTesting();
 
-        int[] commonDims = { 0, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 413025 };
-        for (int dim : commonDims) {
-            WeatherNTNHHooks.resetMovingBlocks(dim);
-        }
     }
 
     /**
-     * Simulates pure Vanilla / standalone environment where HBM, CoFH, and DSurround are absent.
+     * Simulates a standalone environment where Dynamic Surroundings is absent.
      */
     public static void setupVanilla() {
         resetAll();
-        IntegrationManager.setHbmLoaded(false);
-        IntegrationManager.setCoFHCoreLoaded(false);
         IntegrationManager.setDSurroundLoaded(false);
     }
 
     /**
-     * Simulates nominal NTNH environment with HBM NTM, CoFH Core, and Dynamic Surroundings.
+     * Simulates an environment with Dynamic Surroundings.
      */
     public static void setupNTNH() {
         resetAll();
-        IntegrationManager.setHbmLoaded(true);
-        IntegrationManager.setCoFHCoreLoaded(true);
         IntegrationManager.setDSurroundLoaded(true);
     }
 }

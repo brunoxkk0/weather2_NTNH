@@ -162,19 +162,12 @@ public class GuiEZConfig extends GuiScreen {
                 16777215);
             this.drawString(
                 this.fontRendererObj,
-                "Extra snowfall blocks",
+                "Wind only for vanilla particles",
                 this.xStart + 7,
                 yStart2 + 8 + yEleSize * 3,
                 16777215);
-            this.drawString(
-                this.fontRendererObj,
-                "Wind only for vanilla particles",
-                this.xStart + 7,
-                yStart2 + 8 + yEleSize * 4,
-                16777215);
             this.drawString(this.fontRendererObj, op, this.xStart + xOP, yStart2 + 8, 16777215);
             this.drawString(this.fontRendererObj, op, this.xStart + xOP, yStart2 + 8 + yEleSize * 1, 16777215);
-            this.drawString(this.fontRendererObj, op, this.xStart + xOP, yStart2 + 8 + yEleSize * 3, 16777215);
         } else if (this.guiCur.equals(GUI_SUBGUI_PREFERENCE)) {
             this.drawString(
                 this.fontRendererObj,
@@ -196,21 +189,14 @@ public class GuiEZConfig extends GuiScreen {
                 16777215);
             this.drawString(
                 this.fontRendererObj,
-                "Block destruction",
-                this.xStart + 7,
-                yStart2 + 8 + yEleSize * 3,
-                16777215);
-            this.drawString(
-                this.fontRendererObj,
                 "Tornados and Cyclones",
                 this.xStart + 7,
-                yStart2 + 8 + yEleSize * 4,
+                yStart2 + 8 + yEleSize * 3,
                 16777215);
             this.drawString(this.fontRendererObj, op, this.xStart + xOP, yStart2 + 8, 16777215);
             this.drawString(this.fontRendererObj, op, this.xStart + xOP, yStart2 + 8 + yEleSize * 1, 16777215);
             this.drawString(this.fontRendererObj, op, this.xStart + xOP, yStart2 + 8 + yEleSize * 2, 16777215);
             this.drawString(this.fontRendererObj, op, this.xStart + xOP, yStart2 + 8 + yEleSize * 3, 16777215);
-            this.drawString(this.fontRendererObj, op, this.xStart + xOP, yStart2 + 8 + yEleSize * 4, 16777215);
         } else if (this.guiCur.equals(GUI_SUBGUI_DIMENSIONS)) {
             try {
                 for (int ex = 0; ex < this.curDimListCountPerPage; ++ex) {
@@ -389,12 +375,6 @@ public class GuiEZConfig extends GuiScreen {
                             .getInteger("btn_" + WeatherUtilConfig.CMD_BTN_COMP_PARTICLEPRECIP));
             }
 
-            if (serverDataCache.hasKey("btn_" + WeatherUtilConfig.CMD_BTN_COMP_SNOWFALLBLOCKS)) {
-                ((GuiButtonCycle) this.buttonsLookup
-                    .get(Integer.valueOf(WeatherUtilConfig.CMD_BTN_COMP_SNOWFALLBLOCKS)))
-                        .setIndex(serverDataCache.getInteger("btn_" + WeatherUtilConfig.CMD_BTN_COMP_SNOWFALLBLOCKS));
-            }
-
             if (WeatherUtilConfig.nbtClientData.hasKey("btn_" + WeatherUtilConfig.CMD_BTN_COMP_PARTICLESNOMODS)) {
                 ((GuiButtonCycle) this.buttonsLookup
                     .get(Integer.valueOf(WeatherUtilConfig.CMD_BTN_COMP_PARTICLESNOMODS))).setIndex(
@@ -406,9 +386,6 @@ public class GuiEZConfig extends GuiScreen {
                 Integer.valueOf(WeatherUtilConfig.CMD_BTN_COMP_STORM))).enabled = this.canPlayerChangeServerSettings;
             ((GuiButtonCycle) this.buttonsLookup.get(
                 Integer.valueOf(WeatherUtilConfig.CMD_BTN_COMP_LOCK))).enabled = this.canPlayerChangeServerSettings;
-            ((GuiButtonCycle) this.buttonsLookup.get(
-                Integer.valueOf(
-                    WeatherUtilConfig.CMD_BTN_COMP_SNOWFALLBLOCKS))).enabled = this.canPlayerChangeServerSettings;
         } else if (this.guiCur.equals(GUI_SUBGUI_PREFERENCE)) {
             if (serverDataCache.hasKey("btn_" + WeatherUtilConfig.CMD_BTN_PREF_RATEOFSTORM)) {
                 ((GuiButtonCycle) this.buttonsLookup.get(Integer.valueOf(WeatherUtilConfig.CMD_BTN_PREF_RATEOFSTORM)))
@@ -423,12 +400,6 @@ public class GuiEZConfig extends GuiScreen {
             if (serverDataCache.hasKey("btn_" + WeatherUtilConfig.CMD_BTN_PREF_CHANCEOFRAIN)) {
                 ((GuiButtonCycle) this.buttonsLookup.get(Integer.valueOf(WeatherUtilConfig.CMD_BTN_PREF_CHANCEOFRAIN)))
                     .setIndex(serverDataCache.getInteger("btn_" + WeatherUtilConfig.CMD_BTN_PREF_CHANCEOFRAIN));
-            }
-
-            if (serverDataCache.hasKey("btn_" + WeatherUtilConfig.CMD_BTN_PREF_BLOCKDESTRUCTION)) {
-                ((GuiButtonCycle) this.buttonsLookup
-                    .get(Integer.valueOf(WeatherUtilConfig.CMD_BTN_PREF_BLOCKDESTRUCTION)))
-                        .setIndex(serverDataCache.getInteger("btn_" + WeatherUtilConfig.CMD_BTN_PREF_BLOCKDESTRUCTION));
             }
 
             if (serverDataCache.hasKey("btn_" + WeatherUtilConfig.CMD_BTN_PREF_TORNADOANDCYCLONES)) {
@@ -446,9 +417,6 @@ public class GuiEZConfig extends GuiScreen {
             ((GuiButtonCycle) this.buttonsLookup.get(
                 Integer.valueOf(
                     WeatherUtilConfig.CMD_BTN_PREF_CHANCEOFRAIN))).enabled = this.canPlayerChangeServerSettings;
-            ((GuiButtonCycle) this.buttonsLookup.get(
-                Integer.valueOf(
-                    WeatherUtilConfig.CMD_BTN_PREF_BLOCKDESTRUCTION))).enabled = this.canPlayerChangeServerSettings;
             ((GuiButtonCycle) this.buttonsLookup.get(
                 Integer.valueOf(
                     WeatherUtilConfig.CMD_BTN_PREF_TORNADOANDCYCLONES))).enabled = this.canPlayerChangeServerSettings;
@@ -619,15 +587,6 @@ public class GuiEZConfig extends GuiScreen {
                     1));
             this.addButton(
                 new GuiButtonCycle(
-                    WeatherUtilConfig.CMD_BTN_COMP_SNOWFALLBLOCKS,
-                    xStartPadded2 + btnWidthAndPadding * 0,
-                    yStartPadded2 + btnHeightAndPadding * 3,
-                    btnWidth,
-                    btnHeight,
-                    WeatherUtilConfig.LIST_TOGGLE,
-                    0));
-            this.addButton(
-                new GuiButtonCycle(
                     WeatherUtilConfig.CMD_BTN_COMP_PARTICLESNOMODS,
                     xStartPadded2 + btnWidthAndPadding * 0,
                     yStartPadded2 + btnHeightAndPadding * 4,
@@ -665,18 +624,9 @@ public class GuiEZConfig extends GuiScreen {
                     0));
             this.addButton(
                 new GuiButtonCycle(
-                    WeatherUtilConfig.CMD_BTN_PREF_BLOCKDESTRUCTION,
-                    xStartPadded2 + btnWidthAndPadding * 0,
-                    yStartPadded2 + btnHeightAndPadding * 3,
-                    btnWidth,
-                    btnHeight,
-                    WeatherUtilConfig.LIST_TOGGLE,
-                    1));
-            this.addButton(
-                new GuiButtonCycle(
                     WeatherUtilConfig.CMD_BTN_PREF_TORNADOANDCYCLONES,
                     xStartPadded2 + btnWidthAndPadding * 0,
-                    yStartPadded2 + btnHeightAndPadding * 4,
+                    yStartPadded2 + btnHeightAndPadding * 3,
                     btnWidth,
                     btnHeight,
                     WeatherUtilConfig.LIST_TOGGLE,

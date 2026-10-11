@@ -1,7 +1,9 @@
 package weather2.weathersystem;
 
+import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.Iterator;
+import java.util.List;
 import java.util.Random;
 import java.util.Set;
 
@@ -12,11 +14,18 @@ import net.minecraft.util.MathHelper;
 import net.minecraft.util.Vec3;
 import net.minecraft.world.World;
 import net.minecraftforge.common.DimensionManager;
+import net.minecraftforge.common.MinecraftForge;
 
 import CoroUtil.packet.PacketHelper;
 import CoroUtil.util.CoroUtilEntity;
 import cpw.mods.fml.common.event.FMLInterModComms;
 import weather2.Weather;
+import weather2.api.TornadoOptions;
+import weather2.api.TornadoSnapshot;
+import weather2.api.event.TornadoEndReason;
+import weather2.api.event.TornadoEndedEvent;
+import weather2.api.event.TornadoFormEvent;
+import weather2.api.event.TornadoOrigin;
 import weather2.config.ConfigMisc;
 import weather2.entity.EntityLightningBolt;
 import weather2.util.WeatherUtilConfig;
@@ -30,9 +39,9 @@ public class WeatherManagerServer extends WeatherManagerBase {
     private int tickerSyncWeatherCheckVanilla = 0;
     private int tickerSyncWeatherLowWind = 0;
     private int tickerSyncWeatherHighWind = 0;
-    private int tickerSyncVolcanos = 0;
     private int tickerSyncWindAndIMC = 0;
     private int tickerSyncStormSpawnOrRemoveChecks = 0;
+    private boolean tornadoEventDispatching;
 
     public WeatherManagerServer(int parDim) {
         super(parDim);
@@ -43,25 +52,18 @@ public class WeatherManagerServer extends WeatherManagerBase {
     }
 
     public void tick() {
+        World world = this.getWorld();
+        if (world != null) {
+            this.tickTornadoDurations();
+            this.processPendingTornadoEnds();
+        }
         super.tick();
         ++this.tickerSyncWeatherCheckVanilla;
         ++this.tickerSyncWeatherLowWind;
         ++this.tickerSyncWeatherHighWind;
-        ++this.tickerSyncVolcanos;
         ++this.tickerSyncWindAndIMC;
         ++this.tickerSyncStormSpawnOrRemoveChecks;
-        World world = this.getWorld();
-        if (StormObject.lastUsedStormID >= Long.MAX_VALUE) {
-            StormObject.lastUsedStormID = 0L;
-        }
-
         if (world != null) {
-            // NTNH start: periodic cold-path reconciliation of moving blocks budget (every 100 ticks / 5s)
-            if (world.getTotalWorldTime() % 100L == 0L && world.provider != null) {
-                weather2.compat.WeatherNTNHHooks.reconcileMovingBlocks(world, this.getStormObjects());
-            }
-            // NTNH end
-
             if (!ConfigMisc.overcastMode && ConfigMisc.lockServerWeatherMode != -1) {
                 world.getWorldInfo()
                     .setRaining(ConfigMisc.lockServerWeatherMode == 1);
@@ -226,18 +228,6 @@ public class WeatherManagerServer extends WeatherManagerBase {
                 }
             }
 
-            int var7;
-            if (this.tickerSyncVolcanos == ConfigMisc.tickerRateSyncVolcanos) {
-                this.tickerSyncVolcanos = 0;
-
-                for (var7 = 0; var7 < this.getVolcanoObjects()
-                    .size(); ++var7) {
-                    this.syncVolcanoUpdate(
-                        (VolcanoObject) this.getVolcanoObjects()
-                            .get(var7));
-                }
-            }
-
             if (this.tickerSyncWindAndIMC == ConfigMisc.tickerRateSyncWindAndIMC) {
                 this.syncWindUpdate(this.windMan);
                 this.nbtStormsForIMC();
@@ -249,7 +239,8 @@ public class WeatherManagerServer extends WeatherManagerBase {
                 this.tickerSyncStormSpawnOrRemoveChecks = 0;
 
                 EntityPlayer var10;
-                for (var7 = 0; var7 < this.getStormObjects()
+                List stormsWithoutPlayers = new ArrayList();
+                for (int var7 = 0; var7 < this.getStormObjects()
                     .size(); ++var7) {
                     StormObject var9 = (StormObject) this.getStormObjects()
                         .get(var7);
@@ -258,10 +249,12 @@ public class WeatherManagerServer extends WeatherManagerBase {
                         var9.posGround.yCoord,
                         var9.posGround.zCoord,
                         (double) ConfigMisc.Misc_simBoxRadiusCutoff);
-                    if (var10 == null) {
-                        this.removeStormObject(var9.ID);
-                        this.syncStormRemove(var9);
+                    if (var10 == null && !(var9.controlledTornado && (var9.tornadoActive || var9.tornadoEndPending))) {
+                        stormsWithoutPlayers.add(var9);
                     }
+                }
+                for (int var7 = 0; var7 < stormsWithoutPlayers.size(); ++var7) {
+                    this.removeStormSafely(((StormObject) stormsWithoutPlayers.get(var7)).ID);
                 }
 
                 Random var8 = new Random();
@@ -282,6 +275,8 @@ public class WeatherManagerServer extends WeatherManagerBase {
                     }
                 }
             }
+
+            this.processPendingTornadoEnds();
         }
 
     }
@@ -332,6 +327,217 @@ public class WeatherManagerServer extends WeatherManagerBase {
 
     }
 
+    public boolean endTornado(long id, TornadoEndReason reason) {
+        if (this.tornadoEventDispatching) {
+            return false;
+        }
+        StormObject storm = (StormObject) this.lookupStormObjectsByID.get(Long.valueOf(id));
+        if (storm == null || !storm.tornadoActive || storm.tornadoEndPending || reason == null) {
+            return false;
+        }
+
+        storm.tornadoEndPending = true;
+        storm.tornadoEndReason = reason;
+        storm.tornadoActive = false;
+        storm.tornadoRemainingTicks = 0;
+        return true;
+    }
+
+    public boolean tryActivateTornado(StormObject storm, TornadoOrigin origin) {
+        if (this.tornadoEventDispatching || storm == null
+            || origin == null
+            || storm.manager != this
+            || storm.isDead
+            || storm.tornadoActive
+            || storm.tornadoEndPending
+            || storm.tornadoFormationPending
+            || storm.tornadoFormationVetoed
+            || storm.levelCurIntensityStage < StormObject.STATE_FORMING) {
+            return false;
+        }
+        StormObject indexed = (StormObject) this.lookupStormObjectsByID.get(Long.valueOf(storm.ID));
+        if (indexed != null && indexed != storm) {
+            return false;
+        }
+
+        storm.tornadoFormationPending = true;
+        TornadoFormEvent event = new TornadoFormEvent(new TornadoSnapshot(this.dim, storm), origin);
+        try {
+            this.tornadoEventDispatching = true;
+            try {
+                this.postTornadoForm(event);
+            } finally {
+                this.tornadoEventDispatching = false;
+            }
+        } finally {
+            storm.tornadoFormationPending = false;
+        }
+        if (event.isCanceled() || storm.isDead || storm.levelCurIntensityStage < StormObject.STATE_FORMING) {
+            storm.tornadoFormationVetoed = true;
+            return false;
+        }
+        if (!storm.controlledTornado) {
+            storm.pullPlayers = false;
+            storm.pullLivingEntities = false;
+            storm.tornadoRemainingTicks = ConfigMisc.Tornado_DefaultDurationTicks;
+        } else if (storm.tornadoRemainingTicks <= 0) {
+            storm.tornadoFormationVetoed = true;
+            return false;
+        }
+        storm.tornadoActive = true;
+        return true;
+    }
+
+    protected void postTornadoForm(TornadoFormEvent event) {
+        MinecraftForge.EVENT_BUS.post(event);
+    }
+
+    public boolean isDispatchingTornadoEvent() {
+        return this.tornadoEventDispatching;
+    }
+
+    public StormObject spawnControlledTornado(double x, double z, TornadoOptions options) {
+        return this.spawnControlledTornado(x, z, options, TornadoOrigin.API);
+    }
+
+    public StormObject spawnControlledTornado(double x, double z, TornadoOptions options, TornadoOrigin origin) {
+        if (this.tornadoEventDispatching) {
+            throw new IllegalStateException("Tornado creation is not allowed during tornado events");
+        }
+        if (!StormObject.hasAvailableStormID()
+            || this.lookupStormObjectsByID.containsKey(Long.valueOf(StormObject.lastUsedStormID))) {
+            throw new IllegalStateException("Weather2 storm ID space is exhausted or inconsistent");
+        }
+
+        World world = this.getWorld();
+        StormObject storm = new StormObject(this);
+        storm.pos = Vec3.createVectorHelper(x, (double) StormObject.static_YPos_layer0, z);
+        int groundY = world.getHeightValue(MathHelper.floor_double(x), MathHelper.floor_double(z));
+        storm.posGround = Vec3.createVectorHelper(x, (double) groundY, z);
+        storm.posBaseFormationPos = storm.posGround;
+        storm.currentTopYBlock = groundY;
+        storm.layer = 0;
+        storm.stormType = StormObject.TYPE_LAND;
+        storm.naturallySpawned = false;
+        storm.userSpawnedFor = "Weather2 API";
+        storm.levelCurStagesIntensity = 0.0F;
+        storm.maxIntensityStage = StormObject.STATE_FORMING + options.getIntensity();
+        storm.hasStormPeaked = true;
+        storm.controlledTornado = true;
+        storm.tornadoRemainingTicks = options.getDurationTicks();
+        storm.pullPlayers = options.getPullPlayers();
+        storm.pullLivingEntities = options.getPullLivingEntities();
+        storm.levelWater = storm.levelWaterStartRaining * 2;
+        storm.setPrecipitating(true);
+        storm.initFirstTime();
+
+        if (!storm.setIntensityStage(StormObject.STATE_FORMING + options.getIntensity(), origin)) {
+            return null;
+        }
+        this.addStormObject(storm);
+        this.syncStormNew(storm);
+        return storm;
+    }
+
+    public StormObject getActiveTornado(long id) {
+        StormObject storm = (StormObject) this.lookupStormObjectsByID.get(Long.valueOf(id));
+        return storm != null && !storm.isDead
+            && !storm.tornadoEndPending
+            && storm.tornadoActive
+            && (storm.isTornadoFormingOrGreater() || storm.isCycloneFormingOrGreater()) ? storm : null;
+    }
+
+    public boolean setTornadoPull(long id, boolean players, boolean livingEntities) {
+        if (this.tornadoEventDispatching) {
+            return false;
+        }
+        StormObject storm = this.getActiveTornado(id);
+        if (storm == null) {
+            return false;
+        }
+        storm.pullPlayers = players;
+        storm.pullLivingEntities = livingEntities;
+        HashSet update = new HashSet();
+        update.add(storm.nbtSyncForClient());
+        this.syncStormUpdate(update);
+        return true;
+    }
+
+    @Override
+    public void removeStormObject(long id) {
+        this.removeStormSafely(id);
+    }
+
+    public boolean removeStormSafely(long id) {
+        if (this.tornadoEventDispatching) {
+            throw new IllegalStateException("Storm removal is not allowed during tornado events");
+        }
+        StormObject storm = (StormObject) this.lookupStormObjectsByID.get(Long.valueOf(id));
+        if (storm == null) {
+            return false;
+        }
+        if (storm.tornadoActive) {
+            return this.endTornado(id, TornadoEndReason.REMOVED);
+        }
+        if (storm.tornadoEndPending) {
+            storm.tornadoEndReason = TornadoEndReason.REMOVED;
+            return true;
+        }
+
+        this.syncStormRemove(storm);
+        super.removeStormObject(id);
+        return true;
+    }
+
+    private void tickTornadoDurations() {
+        List storms = new ArrayList(this.getStormObjects());
+        for (int i = 0; i < storms.size(); ++i) {
+            StormObject storm = (StormObject) storms.get(i);
+            if (!storm.tornadoActive || storm.tornadoEndPending || storm.isDead) {
+                continue;
+            }
+
+            if (storm.tornadoRemainingTicks <= 1) {
+                this.endTornado(storm.ID, TornadoEndReason.EXPIRED);
+            } else {
+                --storm.tornadoRemainingTicks;
+            }
+        }
+    }
+
+    private void processPendingTornadoEnds() {
+        List storms = new ArrayList(this.getStormObjects());
+        for (int i = 0; i < storms.size(); ++i) {
+            StormObject storm = (StormObject) storms.get(i);
+            if (!storm.tornadoEndPending) {
+                continue;
+            }
+
+            TornadoEndReason reason = storm.tornadoEndReason;
+            TornadoSnapshot snapshot = new TornadoSnapshot(this.dim, storm);
+            storm.tornadoEndPending = false;
+            storm.tornadoEndReason = null;
+            if (reason == TornadoEndReason.NATURAL) {
+                Set update = new HashSet();
+                update.add(storm.nbtSyncForClient());
+                this.syncStormUpdate(update);
+            } else {
+                this.syncStormRemove(storm);
+                super.removeStormObject(storm.ID);
+            }
+            this.postTornadoEnded(new TornadoEndedEvent(snapshot, reason));
+        }
+    }
+
+    protected void postTornadoEnded(TornadoEndedEvent event) {
+        this.tornadoEventDispatching = true;
+        try {
+            MinecraftForge.EVENT_BUS.post(event);
+        } finally {
+            this.tornadoEventDispatching = false;
+        }
+    }
+
     public void playerJoinedServerSyncFull(EntityPlayerMP entP) {
         World world = this.getWorld();
         if (world != null) {
@@ -340,14 +546,6 @@ public class WeatherManagerServer extends WeatherManagerBase {
                 .size(); ++i) {
                 this.syncStormNew(
                     (StormObject) this.getStormObjects()
-                        .get(i),
-                    entP);
-            }
-
-            for (i = 0; i < this.getVolcanoObjects()
-                .size(); ++i) {
-                this.syncVolcanoNew(
-                    (VolcanoObject) this.getVolcanoObjects()
                         .get(i),
                     entP);
             }
@@ -415,7 +613,7 @@ public class WeatherManagerServer extends WeatherManagerBase {
         NBTTagCompound data = new NBTTagCompound();
         data.setString("packetCommand", "WeatherData");
         data.setString("command", "syncStormNew");
-        data.setTag("data", parStorm.nbtSyncForClient());
+        data.setTag("data", parStorm.nbtSyncForClient(true));
         if (entP == null) {
             Weather.eventChannel.sendToDimension(
                 PacketHelper.getNBTPacket(data, Weather.eventChannelName),
@@ -426,7 +624,7 @@ public class WeatherManagerServer extends WeatherManagerBase {
 
     }
 
-    private void syncStormUpdate(Set stormObjectsData) {
+    protected void syncStormUpdate(Set stormObjectsData) {
         NBTTagCompound data = new NBTTagCompound();
         data.setInteger("stormCount", stormObjectsData.size());
         data.setString("packetCommand", "WeatherData");
@@ -448,6 +646,8 @@ public class WeatherManagerServer extends WeatherManagerBase {
         data.setString("packetCommand", "WeatherData");
         data.setString("command", "syncStormRemove");
         data.setTag("data", parStorm.nbtSyncForClient());
+        data.getCompoundTag("data")
+            .setLong("ID", parStorm.ID);
         data.getCompoundTag("data")
             .setBoolean("isDead", true);
         Weather.eventChannel.sendToDimension(

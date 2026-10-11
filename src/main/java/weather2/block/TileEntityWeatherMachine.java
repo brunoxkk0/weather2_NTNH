@@ -38,8 +38,7 @@ public class TileEntityWeatherMachine extends TileEntity {
         WeatherManagerServer wm = (WeatherManagerServer) ServerTickHandler.lookupDimToWeatherMan
             .get(Integer.valueOf(this.worldObj.provider.dimensionId));
         if (wm != null && this.lastTickStormObject != null) {
-            wm.removeStormObject(this.lastTickStormObject.ID);
-            wm.syncStormRemove(this.lastTickStormObject);
+            wm.removeStormSafely(this.lastTickStormObject.ID);
         }
 
     }
@@ -86,7 +85,7 @@ public class TileEntityWeatherMachine extends TileEntity {
                 this.lastTickStormObject.attrib_precipitation = true;
                 this.lastTickStormObject.hasStormPeaked = false;
                 this.lastTickStormObject.levelCurStagesIntensity = 0.9F;
-                this.lastTickStormObject.levelCurIntensityStage = StormObject.STATE_NORMAL;
+                int targetIntensityStage = StormObject.STATE_NORMAL;
                 this.lastTickStormObject.stormType = StormObject.TYPE_LAND;
                 this.lastTickStormObject.levelTemperature = 40.0F;
                 if (this.weatherType == 0) {
@@ -94,21 +93,23 @@ public class TileEntityWeatherMachine extends TileEntity {
                 } else if (this.weatherType != 1) {
                     if (this.weatherType == 2) {
                         this.lastTickStormObject.stormType = StormObject.TYPE_LAND;
-                        this.lastTickStormObject.levelCurIntensityStage = StormObject.STATE_THUNDER;
+                        targetIntensityStage = StormObject.STATE_THUNDER;
                     } else if (this.weatherType == 3) {
                         this.lastTickStormObject.stormType = StormObject.TYPE_LAND;
-                        this.lastTickStormObject.levelCurIntensityStage = StormObject.STATE_HIGHWIND;
+                        targetIntensityStage = StormObject.STATE_HIGHWIND;
                     } else if (this.weatherType == 4) {
                         this.lastTickStormObject.stormType = StormObject.TYPE_LAND;
-                        this.lastTickStormObject.levelCurIntensityStage = StormObject.STATE_HAIL;
+                        targetIntensityStage = StormObject.STATE_HAIL;
                     } else if (this.weatherType == 5) {
                         this.lastTickStormObject.stormType = StormObject.TYPE_LAND;
-                        this.lastTickStormObject.levelCurIntensityStage = StormObject.STATE_STAGE1;
+                        targetIntensityStage = StormObject.STATE_STAGE1;
                     } else if (this.weatherType == 6) {
                         this.lastTickStormObject.stormType = StormObject.TYPE_WATER;
-                        this.lastTickStormObject.levelCurIntensityStage = StormObject.STATE_STAGE1;
+                        targetIntensityStage = StormObject.STATE_STAGE1;
                     }
                 }
+                this.lastTickStormObject
+                    .setIntensityStage(targetIntensityStage, weather2.api.event.TornadoOrigin.MACHINE);
             }
         }
 

@@ -48,7 +48,9 @@ public class WeatherManagerBase {
             .size(); ++i) {
             StormObject vo = (StormObject) this.getStormObjects()
                 .get(i);
-            vo.reset();
+            if (!vo.isDead) {
+                vo.reset();
+            }
         }
 
         this.getStormObjects()
@@ -63,18 +65,10 @@ public class WeatherManagerBase {
             var3.printStackTrace();
         }
 
-        for (i = 0; i < this.getVolcanoObjects()
-            .size(); ++i) {
-            VolcanoObject var4 = (VolcanoObject) this.getVolcanoObjects()
-                .get(i);
-            var4.reset();
-        }
-
         this.getVolcanoObjects()
             .clear();
         this.lookupVolcanoes.clear();
         this.windMan.reset();
-        StormObject.lastUsedStormID = 0L;
     }
 
     public World getWorld() {
@@ -84,29 +78,35 @@ public class WeatherManagerBase {
     public void tick() {
         World world = this.getWorld();
         if (world != null) {
-            List list = this.getStormObjects();
+            List list = new ArrayList(this.getStormObjects());
+            List deadStorms = new ArrayList();
 
             int i;
             for (i = 0; i < list.size(); ++i) {
                 StormObject so = (StormObject) list.get(i);
-                if (this instanceof WeatherManagerServer && so.isDead) {
-                    this.removeStormObject(so.ID);
-                    ((WeatherManagerServer) this).syncStormRemove(so);
-                } else if (!so.isDead) {
+                if (this.lookupStormObjectsByID.get(Long.valueOf(so.ID)) != so) {
+                    continue;
+                }
+                if (so.isDead) {
+                    deadStorms.add(so);
+                } else if (!so.tornadoEndPending) {
                     so.tick();
-                } else if (this.getWorld().isRemote) {
-                    Weather.dbg(
-                        "WARNING!!! - detected isDead storm object still in client side list, had to remove storm object with ID "
-                            + so.ID
-                            + " from client side, wasnt properly removed via main channels");
-                    this.removeStormObject(so.ID);
                 }
             }
 
-            for (i = 0; i < this.getVolcanoObjects()
-                .size(); ++i) {
-                ((VolcanoObject) this.getVolcanoObjects()
-                    .get(i)).tick();
+            for (i = 0; i < deadStorms.size(); ++i) {
+                StormObject so = (StormObject) deadStorms.get(i);
+                if (this instanceof WeatherManagerServer) {
+                    ((WeatherManagerServer) this).removeStormSafely(so.ID);
+                } else {
+                    if (this.getWorld().isRemote) {
+                        Weather.dbg(
+                            "WARNING!!! - detected isDead storm object still in client side list, had to remove storm object with ID "
+                                + so.ID
+                                + " from client side, wasnt properly removed via main channels");
+                    }
+                    this.removeStormObject(so.ID);
+                }
             }
 
             this.windMan.tick();
@@ -149,17 +149,12 @@ public class WeatherManagerBase {
     public void removeStormObject(long ID) {
         StormObject so = (StormObject) this.lookupStormObjectsByID.get(Long.valueOf(ID));
         if (so != null) {
-            so.setDead();
+            if (!so.isDead) {
+                so.setDead();
+            }
             this.listStormObjects.remove(so);
             this.lookupStormObjectsByID.remove(Long.valueOf(ID));
             ((ArrayList) this.lookupStormObjectsByLayer.get(Integer.valueOf(so.layer))).remove(so);
-        } else {
-            Weather.dbg(
-                "error looking up storm ID on server for removal: " + ID
-                    + " - lookup count: "
-                    + this.lookupStormObjectsByID.size()
-                    + " - last used ID: "
-                    + StormObject.lastUsedStormID);
         }
 
     }
@@ -206,7 +201,7 @@ public class WeatherManagerBase {
             .size(); ++i) {
             StormObject storm = (StormObject) this.getStormObjects()
                 .get(i);
-            if (!storm.isDead) {
+            if (!storm.isDead && !storm.isPendingTornadoRemoval()) {
                 double dist = storm.pos.distanceTo(parPos);
                 if (dist < closestDist && dist <= maxDist
                     && (storm.attrib_precipitation && orRain || severityFlagMin == -1
@@ -227,7 +222,8 @@ public class WeatherManagerBase {
             .size(); ++i) {
             StormObject storm = (StormObject) this.getStormObjects()
                 .get(i);
-            if (!storm.isDead && storm.pos.distanceTo(parPos) < maxDist
+            if (!storm.isDead && !storm.isPendingTornadoRemoval()
+                && storm.pos.distanceTo(parPos) < maxDist
                 && (storm.attrib_precipitation || storm.levelCurIntensityStage > StormObject.STATE_NORMAL)) {
                 storms.add(storm);
             }
@@ -237,29 +233,7 @@ public class WeatherManagerBase {
     }
 
     public void writeToFile() {
-        NBTTagCompound mainNBT = new NBTTagCompound();
-        NBTTagCompound listVolcanoesNBT = new NBTTagCompound();
-
-        for (int listStormsNBT = 0; listStormsNBT < this.listVolcanoes.size(); ++listStormsNBT) {
-            VolcanoObject saveFolder = (VolcanoObject) this.listVolcanoes.get(listStormsNBT);
-            NBTTagCompound ex = new NBTTagCompound();
-            saveFolder.writeToNBT(ex);
-            listVolcanoesNBT.setTag("volcano_" + saveFolder.ID, ex);
-        }
-
-        mainNBT.setTag("volcanoData", listVolcanoesNBT);
-        mainNBT.setLong("lastUsedIDVolcano", VolcanoObject.lastUsedID);
-        NBTTagCompound var8 = new NBTTagCompound();
-
-        for (int var9 = 0; var9 < this.listStormObjects.size(); ++var9) {
-            StormObject var11 = (StormObject) this.listStormObjects.get(var9);
-            NBTTagCompound objNBT = var11.writeToNBT();
-            var8.setTag("storm_" + var11.ID, objNBT);
-        }
-
-        mainNBT.setTag("stormData", var8);
-        mainNBT.setLong("lastUsedIDStorm", StormObject.lastUsedStormID);
-        mainNBT.setLong("lastStormFormed", this.lastStormFormed);
+        NBTTagCompound mainNBT = this.saveDataToNBT();
         String var10 = CoroUtilFile.getWorldSaveFolderPath() + CoroUtilFile.getWorldFolderName()
             + "weather2"
             + File.separator;
@@ -276,6 +250,25 @@ public class WeatherManagerBase {
             var7.printStackTrace();
         }
 
+    }
+
+    NBTTagCompound saveDataToNBT() {
+        NBTTagCompound mainNBT = new NBTTagCompound();
+        NBTTagCompound var8 = new NBTTagCompound();
+
+        for (int var9 = 0; var9 < this.listStormObjects.size(); ++var9) {
+            StormObject var11 = (StormObject) this.listStormObjects.get(var9);
+            if (var11.isPendingTornadoRemoval()) {
+                continue;
+            }
+            NBTTagCompound objNBT = var11.writeToNBT();
+            var8.setTag("storm_" + var11.ID, objNBT);
+        }
+
+        mainNBT.setTag("stormData", var8);
+        mainNBT.setLong("lastUsedIDStorm", StormObject.lastUsedStormID);
+        mainNBT.setLong("lastStormFormed", this.lastStormFormed);
+        return mainNBT;
     }
 
     public void readFromFile() {
@@ -327,32 +320,15 @@ public class WeatherManagerBase {
             }
         }
 
+        this.readFromNBT(rtsNBT);
+
+    }
+
+    void readFromNBT(NBTTagCompound rtsNBT) {
         this.lastStormFormed = rtsNBT.getLong("lastStormFormed");
-        VolcanoObject.lastUsedID = rtsNBT.getLong("lastUsedIDVolcano");
-        StormObject.lastUsedStormID = rtsNBT.getLong("lastUsedIDStorm");
-        NBTTagCompound nbtVolcanoes1 = rtsNBT.getCompoundTag("volcanoData");
-        Iterator it = nbtVolcanoes1.func_150296_c()
-            .iterator();
-
-        while (it.hasNext()) {
-            String nbtStorms = (String) it.next();
-            NBTTagCompound tagName = nbtVolcanoes1.getCompoundTag(nbtStorms);
-            VolcanoObject teamData = new VolcanoObject(
-                (WeatherManagerBase) ServerTickHandler.lookupDimToWeatherMan.get(Integer.valueOf(0)));
-
-            try {
-                teamData.readFromNBT(tagName);
-            } catch (Exception var12) {
-                var12.printStackTrace();
-            }
-
-            this.addVolcanoObject(teamData);
-            ((WeatherManagerServer) ((WeatherManagerServer) this)).syncVolcanoNew(teamData);
-            teamData.initPost();
-        }
-
+        StormObject.observeSavedStormIds(rtsNBT);
         NBTTagCompound nbtStorms1 = rtsNBT.getCompoundTag("stormData");
-        it = nbtStorms1.func_150296_c()
+        Iterator it = nbtStorms1.func_150296_c()
             .iterator();
 
         while (it.hasNext()) {
@@ -364,6 +340,7 @@ public class WeatherManagerBase {
 
                 try {
                     to.readFromNBT(teamData1);
+                    StormObject.observeLoadedStormID(to.ID);
                 } catch (Exception var11) {
                     var11.printStackTrace();
                 }

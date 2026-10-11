@@ -2,19 +2,13 @@ package weather2.compat;
 
 import weather2.climate.ClimateEngine;
 import weather2.climate.ClimateProfile;
-import weather2.deflector.DeflectorPowerEngine;
 import weather2.integration.DSurroundBridge;
-import weather2.protection.BlockProtectionPipeline;
 import weather2.weathersystem.storm.StormObject;
 
 /**
  * NTNH Architectural Facade (Unified Seam).
  * Provides clean static entry points for all ASM bytecode patches and game engine hooks.
- * Internally delegates all operations to deep domain modules:
- * - ClimateEngine
- * - BlockProtectionPipeline
- * - DeflectorPowerEngine
- * - DSurroundBridge
+ * Internally delegates climate and Dynamic Surroundings hooks.
  */
 public class WeatherNTNHHooks {
 
@@ -25,10 +19,6 @@ public class WeatherNTNHHooks {
         return ClimateEngine.resolveDimensionId(token);
     }
 
-    public static boolean isAtmosphericWorld(Object worldObj) {
-        return ClimateEngine.isAtmosphericWorld(worldObj);
-    }
-
     public static void ensureProfilesLoaded() {
         ClimateEngine.ensureProfilesLoaded();
     }
@@ -37,115 +27,40 @@ public class WeatherNTNHHooks {
         return ClimateEngine.getProfile(dim);
     }
 
-    public static ClimateProfile getProfile(StormObject so) {
-        return ClimateEngine.getProfile(so);
+    public static ClimateProfile getProfile(StormObject storm) {
+        return ClimateEngine.getProfile(storm);
     }
 
-    public static boolean isEve(StormObject so) {
-        return ClimateEngine.isEve(so);
+    public static boolean isEve(StormObject storm) {
+        return ClimateEngine.isEve(storm);
     }
 
-    public static boolean isTekto(StormObject so) {
-        return ClimateEngine.isTekto(so);
+    public static boolean isTekto(StormObject storm) {
+        return ClimateEngine.isTekto(storm);
     }
 
-    public static void onInitRealStorm(StormObject so) {
-        ClimateEngine.onInitRealStorm(so);
+    public static void onInitRealStorm(StormObject storm) {
+        ClimateEngine.onInitRealStorm(storm);
     }
 
-    public static int getAdjustedLightningOdds(int baseOdds, StormObject so) {
-        return ClimateEngine.getAdjustedLightningOdds(baseOdds, so);
+    public static int getAdjustedLightningOdds(int baseOdds, StormObject storm) {
+        return ClimateEngine.getAdjustedLightningOdds(baseOdds, storm);
     }
 
-    public static int getDeadlyTimeBetween(int defaultTicks, StormObject so) {
-        return ClimateEngine.getDeadlyTimeBetween(defaultTicks, so);
+    public static int getDeadlyTimeBetween(int defaultTicks, StormObject storm) {
+        return ClimateEngine.getDeadlyTimeBetween(defaultTicks, storm);
     }
 
-    public static int getLandStormOdds(int defaultOdds, StormObject so) {
-        return ClimateEngine.getLandStormOdds(defaultOdds, so);
+    public static int getLandStormOdds(int defaultOdds, StormObject storm) {
+        return ClimateEngine.getLandStormOdds(defaultOdds, storm);
     }
 
-    public static int getOceanStormOdds(int defaultOdds, StormObject so) {
-        return ClimateEngine.getOceanStormOdds(defaultOdds, so);
+    public static int getOceanStormOdds(int defaultOdds, StormObject storm) {
+        return ClimateEngine.getOceanStormOdds(defaultOdds, storm);
     }
 
-    public static boolean isDimensionGrabAllowed(int dim) {
-        return ClimateEngine.isDimensionGrabAllowed(dim);
-    }
-
-    public static boolean shouldSpawnFunnel(StormObject so) {
-        return ClimateEngine.shouldSpawnFunnel(so);
-    }
-
-    // ----------------------------------------------------
-    // Block Protection & Budgeting Hooks
-    // ----------------------------------------------------
-    public static int getMaxMovingBlocksPerDimension() {
-        return BlockProtectionPipeline.getMaxMovingBlocksPerDimension();
-    }
-
-    public static boolean canTornadoGrabBlocks(StormObject so) {
-        return BlockProtectionPipeline.canTornadoGrabBlocks(so);
-    }
-
-    public static int getMovingBlocksCount(int dim) {
-        return BlockProtectionPipeline.getMovingBlocksCount(dim);
-    }
-
-    public static void incrementMovingBlocks(int dim) {
-        BlockProtectionPipeline.incrementMovingBlocks(dim);
-    }
-
-    public static void decrementMovingBlocks(int dim) {
-        BlockProtectionPipeline.decrementMovingBlocks(dim);
-    }
-
-    public static void resetMovingBlocks(int dim) {
-        BlockProtectionPipeline.resetMovingBlocks(dim);
-    }
-
-    public static void reconcileMovingBlocks(int dim, java.util.List storms) {
-        BlockProtectionPipeline.reconcileMovingBlocks(dim, storms);
-    }
-
-    public static void reconcileMovingBlocks(net.minecraft.world.World world, java.util.List storms) {
-        BlockProtectionPipeline.reconcileMovingBlocks(world, storms);
-    }
-
-    public static boolean isBlockProtected(Object blockObj) {
-        return BlockProtectionPipeline.isBlockProtected(blockObj);
-    }
-
-    public static String getBlockRegistryName(Object blockObj) {
-        return BlockProtectionPipeline.getBlockRegistryName(blockObj);
-    }
-
-    public static boolean isHbmBlockWhitelisted(Object blockObj) {
-        return BlockProtectionPipeline.isHbmBlockWhitelisted(blockObj);
-    }
-
-    public static boolean canGrab(weather2.protection.BlockContext ctx) {
-        return BlockProtectionPipeline.canGrab(ctx);
-    }
-
-    public static boolean canGrab(net.minecraft.world.World world, int x, int y, int z, net.minecraft.block.Block block,
-        StormObject storm) {
-        return BlockProtectionPipeline.canGrab(world, x, y, z, block, storm);
-    }
-
-    // ----------------------------------------------------
-    // Deflector & Energy Hooks
-    // ----------------------------------------------------
-    public static long getDeflectorDissipationCost(int stage) {
-        return DeflectorPowerEngine.getDeflectorDissipationCost(stage);
-    }
-
-    public static boolean tickDeflectorPower(Object deflectorObj) {
-        return DeflectorPowerEngine.tickDeflectorPower(deflectorObj);
-    }
-
-    public static boolean processDeflectorStorm(Object deflectorObj, Object wmObj, Object stormObj) {
-        return DeflectorPowerEngine.processDeflectorStorm(deflectorObj, wmObj, stormObj);
+    public static boolean shouldSpawnFunnel(StormObject storm) {
+        return ClimateEngine.shouldSpawnFunnel(storm);
     }
 
     // ----------------------------------------------------

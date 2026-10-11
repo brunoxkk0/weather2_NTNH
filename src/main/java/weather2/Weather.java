@@ -10,7 +10,6 @@ import cpw.mods.fml.common.Mod.EventHandler;
 import cpw.mods.fml.common.Mod.Instance;
 import cpw.mods.fml.common.SidedProxy;
 import cpw.mods.fml.common.event.FMLInitializationEvent;
-import cpw.mods.fml.common.event.FMLInterModComms.IMCMessage;
 import cpw.mods.fml.common.event.FMLPreInitializationEvent;
 import cpw.mods.fml.common.event.FMLServerStartedEvent;
 import cpw.mods.fml.common.event.FMLServerStartingEvent;
@@ -21,7 +20,6 @@ import modconfig.ConfigMod;
 import weather2.config.ConfigMisc;
 import weather2.player.PlayerData;
 import weather2.util.WeatherUtilConfig;
-import weather2.weathersystem.WeatherManagerServer;
 
 @Mod(modid = "weather2", name = "weather2", version = "v2.3.19")
 public class Weather {
@@ -84,21 +82,13 @@ public class Weather {
 
     public static void writeOutData(boolean unloadInstances) {
         try {
-            WeatherManagerServer ex = (WeatherManagerServer) ServerTickHandler.lookupDimToWeatherMan
-                .get(Integer.valueOf(0));
-            if (ex != null) {
-                ex.writeToFile();
-            }
-
+            ServerTickHandler.writeWeatherData();
             PlayerData.writeAllPlayerNBT(unloadInstances);
         } catch (Exception var2) {
             var2.printStackTrace();
         }
 
     }
-
-    @EventHandler
-    public void handleIMCMessages(IMCMessage event) {}
 
     public static void dbg(Object obj) {
         if (ConfigMisc.consoleDebug) {

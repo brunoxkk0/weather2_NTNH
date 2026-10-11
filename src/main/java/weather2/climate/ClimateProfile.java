@@ -2,8 +2,7 @@ package weather2.climate;
 
 /**
  * NTNH Typed Weather Profile for a dimension.
- * Immutable record representing meteorological behavior, storm progression limits,
- * lightning odds, spawn frequencies, and block manipulation permissions.
+ * Immutable record representing meteorological behavior and storm progression limits.
  */
 public class ClimateProfile {
 
@@ -16,10 +15,12 @@ public class ClimateProfile {
     public final float lightningMultiplier;
     public final int landSpawnOdds;
     public final int oceanSpawnOdds;
+    @Deprecated
     public final boolean grabBlocks;
 
     public ClimateProfile(int dim, String name, boolean weatherEnabled, int maxStage, boolean alwaysProgresses,
-        int deadlyCooldown, float lightningMultiplier, int landSpawnOdds, int oceanSpawnOdds, boolean grabBlocks) {
+        int deadlyCooldown, float lightningMultiplier, int landSpawnOdds, int oceanSpawnOdds,
+        boolean ignoredGrabBlocks) {
         this.dim = dim;
         this.name = name != null ? name : ("dim_" + dim);
         this.weatherEnabled = weatherEnabled;
@@ -29,7 +30,7 @@ public class ClimateProfile {
         this.lightningMultiplier = Math.max(0.1F, lightningMultiplier);
         this.landSpawnOdds = Math.max(0, landSpawnOdds);
         this.oceanSpawnOdds = Math.max(0, oceanSpawnOdds);
-        this.grabBlocks = grabBlocks;
+        this.grabBlocks = false;
     }
 
     public static Builder builder(String name) {
@@ -90,7 +91,6 @@ public class ClimateProfile {
         private float lightningMultiplier = 1.0F;
         private int landSpawnOdds = 10;
         private int oceanSpawnOdds = 0;
-        private boolean grabBlocks = false;
 
         public Builder(String name) {
             this.name = name != null ? name : "";
@@ -192,8 +192,8 @@ public class ClimateProfile {
             return this;
         }
 
-        public Builder grabBlocks(boolean grab) {
-            this.grabBlocks = grab;
+        @Deprecated
+        public Builder grabBlocks(boolean ignored) {
             return this;
         }
 
@@ -211,7 +211,7 @@ public class ClimateProfile {
                 lightningMultiplier,
                 landSpawnOdds,
                 oceanSpawnOdds,
-                grabBlocks);
+                false);
         }
     }
 }

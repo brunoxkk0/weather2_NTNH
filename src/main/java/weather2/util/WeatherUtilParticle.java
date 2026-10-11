@@ -8,7 +8,6 @@ import net.minecraft.client.particle.EffectRenderer;
 import net.minecraft.client.particle.EntityFX;
 import net.minecraft.util.Vec3;
 
-import CoroUtil.OldUtil;
 import cpw.mods.fml.client.FMLClientHandler;
 import cpw.mods.fml.relauncher.Side;
 import cpw.mods.fml.relauncher.SideOnly;
@@ -16,6 +15,8 @@ import extendedrenderer.particle.entity.EntityRotFX;
 import extendedrenderer.particle.entity.EntityTexFX;
 
 public class WeatherUtilParticle {
+
+    private static final Field PARTICLE_AGE_FIELD = findParticleAgeField();
 
     public static List[] fxLayers;
     public static int effLeafID = 0;
@@ -27,13 +28,28 @@ public class WeatherUtilParticle {
     public static Vec3[] rainPositions = new Vec3[maxRainDrops];
 
     public static int getParticleAge(EntityFX ent) {
-        return OldUtil.getPrivateValueBoth(EntityFX.class, ent, "field_70546_d", "particleAge") != null
-            ? ((Integer) OldUtil.getPrivateValueBoth(EntityFX.class, ent, "field_70546_d", "particleAge")).intValue()
-            : 0;
+        try {
+            return PARTICLE_AGE_FIELD == null ? 0 : PARTICLE_AGE_FIELD.getInt(ent);
+        } catch (IllegalAccessException e) {
+            return 0;
+        }
     }
 
     public static void setParticleAge(EntityFX ent, int val) {
-        OldUtil.setPrivateValueBoth(EntityFX.class, ent, "field_70546_d", "particleAge", Integer.valueOf(val));
+        try {
+            if (PARTICLE_AGE_FIELD != null) PARTICLE_AGE_FIELD.setInt(ent, val);
+        } catch (IllegalAccessException ignored) {}
+    }
+
+    private static Field findParticleAgeField() {
+        for (String name : new String[] { "particleAge", "field_70546_d" }) {
+            try {
+                Field field = EntityFX.class.getDeclaredField(name);
+                field.setAccessible(true);
+                return field;
+            } catch (Exception ignored) {}
+        }
+        return null;
     }
 
     @SideOnly(Side.CLIENT)

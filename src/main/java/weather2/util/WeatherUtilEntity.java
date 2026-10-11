@@ -24,7 +24,27 @@ import weather2.weathersystem.wind.WindManager;
 
 public class WeatherUtilEntity {
 
+    private static final String TORNADO_PULL_UNTIL = "weather2TornadoPullUntil";
+    private static final String TORNADO_PULL_DIMENSION = "weather2TornadoPullDimension";
     public static int playerInAirTime = 0;
+
+    public static void markTornadoPull(EntityPlayer player) {
+        player.getEntityData()
+            .setLong(TORNADO_PULL_UNTIL, player.worldObj.getTotalWorldTime() + 5L);
+        player.getEntityData()
+            .setInteger(TORNADO_PULL_DIMENSION, player.worldObj.provider.dimensionId);
+    }
+
+    public static boolean shouldIgnoreTornadoFlightCheck(EntityPlayer player) {
+        return player != null && player.worldObj != null
+            && player.worldObj.provider != null
+            && player.getEntityData()
+                .hasKey(TORNADO_PULL_UNTIL)
+            && player.getEntityData()
+                .getInteger(TORNADO_PULL_DIMENSION) == player.worldObj.provider.dimensionId
+            && player.getEntityData()
+                .getLong(TORNADO_PULL_UNTIL) >= player.worldObj.getTotalWorldTime();
+    }
 
     public static float getWeight(Entity entity1) {
         return getWeight(entity1, false);

@@ -1,9 +1,12 @@
 package weather2;
 
+import java.io.File;
+import java.io.FileInputStream;
 import java.util.ArrayList;
 import java.util.HashMap;
 
 import net.minecraft.entity.player.EntityPlayerMP;
+import net.minecraft.nbt.CompressedStreamTools;
 import net.minecraft.nbt.NBTTagCompound;
 import net.minecraft.world.World;
 import net.minecraft.world.WorldServer;
@@ -11,6 +14,7 @@ import net.minecraftforge.common.DimensionManager;
 
 import com.google.common.collect.ImmutableList;
 
+import CoroUtil.util.CoroUtilFile;
 import cpw.mods.fml.common.FMLCommonHandler;
 import cpw.mods.fml.common.event.FMLInterModComms;
 import cpw.mods.fml.common.event.FMLInterModComms.IMCMessage;
@@ -18,6 +22,7 @@ import weather2.config.ConfigMisc;
 import weather2.util.WeatherUtilConfig;
 import weather2.weathersystem.WeatherManagerBase;
 import weather2.weathersystem.WeatherManagerServer;
+import weather2.weathersystem.storm.StormObject;
 
 public class ServerTickHandler {
 
@@ -25,19 +30,47 @@ public class ServerTickHandler {
     public static HashMap lookupDimToWeatherMan = new HashMap();
     public static World lastWorld;
     public static NBTTagCompound worldNBT = new NBTTagCompound();
+    private static volatile Thread serverThread;
+    private static boolean savedStormIdsScanned;
+    private static long savedStormIdsRetryTick;
+
+    public static boolean isOnServerThread() {
+        return serverThread != null && serverThread == Thread.currentThread();
+    }
+
+    static void writeWeatherData() {
+        for (Object manager : lookupDimToWeatherMan.values()) {
+            ((WeatherManagerServer) manager).writeToFile();
+        }
+    }
 
     public static void onTickInGame() {
         if (FMLCommonHandler.instance() != null && FMLCommonHandler.instance()
             .getMinecraftServerInstance() != null) {
+            if (serverThread == null) {
+                serverThread = Thread.currentThread();
+            }
             WorldServer world = FMLCommonHandler.instance()
                 .getMinecraftServerInstance()
                 .worldServerForDimension(0);
+            boolean canStartWeather = savedStormIdsScanned;
+            if (world != null && !savedStormIdsScanned) {
+                File saveFolder = new File(
+                    CoroUtilFile.getWorldSaveFolderPath() + CoroUtilFile.getWorldFolderName()
+                        + "weather2"
+                        + File.separator);
+                canStartWeather = scanSavedStormIdsIfNeeded(saveFolder, world.getTotalWorldTime());
+            }
             if (world != null && lastWorld != world) {
                 lastWorld = world;
             }
 
             if (world != null && world.getTotalWorldTime() % (long) ConfigMisc.Misc_AutoDataSaveIntervalInTicks == 0L) {
                 Weather.writeOutData(false);
+            }
+
+            if (!canStartWeather) {
+                return;
             }
 
             WorldServer[] worlds = DimensionManager.getWorlds();
@@ -89,7 +122,86 @@ public class ServerTickHandler {
         }
     }
 
+    static boolean scanSavedStormIdsIfNeeded(File directory, long worldTime) {
+        if (savedStormIdsScanned) {
+            return true;
+        }
+        if (worldTime < savedStormIdsRetryTick) {
+            return false;
+        }
+
+        savedStormIdsScanned = scanSavedStormIds(directory);
+        if (!savedStormIdsScanned) {
+            savedStormIdsRetryTick = worldTime + 200L;
+            System.err.println(
+                "Weather2 is waiting for saved storm IDs to be readable before starting weather managers; retrying in 200 ticks.");
+        }
+        return savedStormIdsScanned;
+    }
+
+    static void resetSavedStormIdsScan() {
+        savedStormIdsScanned = false;
+        savedStormIdsRetryTick = 0L;
+    }
+
+    static boolean scanSavedStormIds(File directory) {
+        File[] files;
+        try {
+            if (!directory.exists()) {
+                File parent = directory.getParentFile();
+                if (parent == null) {
+                    return false;
+                }
+                File[] siblings = parent.listFiles();
+                if (siblings == null) {
+                    return false;
+                }
+                for (int i = 0; i < siblings.length; ++i) {
+                    if (siblings[i].getName()
+                        .equals(directory.getName())) {
+                        return false;
+                    }
+                }
+                return true;
+            }
+            files = directory.listFiles();
+        } catch (SecurityException exception) {
+            exception.printStackTrace();
+            return false;
+        }
+        if (files == null) {
+            return false;
+        }
+
+        boolean success = true;
+        for (int i = 0; i < files.length; ++i) {
+            File file = files[i];
+            String name = file.getName();
+            if (!name.startsWith("WeatherData_") || !name.endsWith(".dat")) {
+                continue;
+            }
+
+            try {
+                if (!file.isFile()) {
+                    success = false;
+                    continue;
+                }
+
+                try (FileInputStream input = new FileInputStream(file)) {
+                    StormObject.observeSavedStormIds(CompressedStreamTools.readCompressed(input));
+                }
+            } catch (Exception exception) {
+                exception.printStackTrace();
+                success = false;
+            }
+        }
+        return success;
+    }
+
     public static void addWorldToWeather(int dim) {
+        if (!savedStormIdsScanned) {
+            return;
+        }
         Weather.dbg("Registering Weather2 manager for dim: " + dim);
         WeatherManagerServer wm = new WeatherManagerServer(dim);
         listWeatherMans.add(wm);
@@ -101,11 +213,10 @@ public class ServerTickHandler {
         Weather.dbg("Deregistering Weather2 manager for dim: " + dim);
         WeatherManagerServer wm = (WeatherManagerServer) lookupDimToWeatherMan.get(Integer.valueOf(dim));
         if (wm != null) {
+            wm.writeToFile();
             listWeatherMans.remove(wm);
             lookupDimToWeatherMan.remove(Integer.valueOf(dim));
         }
-
-        wm.writeToFile();
     }
 
     public static void playerJoinedServerSyncFull(EntityPlayerMP entP) {
@@ -126,8 +237,9 @@ public class ServerTickHandler {
     }
 
     public static void reset() {
-        for (int i = 0; i < listWeatherMans.size(); ++i) {
-            WeatherManagerBase wm = (WeatherManagerBase) listWeatherMans.get(i);
+        ArrayList managers = new ArrayList(listWeatherMans);
+        for (int i = 0; i < managers.size(); ++i) {
+            WeatherManagerBase wm = (WeatherManagerBase) managers.get(i);
             int dim = wm.dim;
             if (lookupDimToWeatherMan.containsKey(Integer.valueOf(dim))) {
                 removeWorldFromWeather(dim);
@@ -143,6 +255,10 @@ public class ServerTickHandler {
             listWeatherMans.clear();
             lookupDimToWeatherMan.clear();
         }
+
+        StormObject.lastUsedStormID = 0L;
+        resetSavedStormIdsScan();
+        serverThread = null;
 
     }
 

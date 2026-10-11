@@ -2,14 +2,15 @@ package weather2.climate;
 
 import java.util.Collection;
 import java.util.Collections;
-import java.util.Set;
+import java.util.Locale;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.logging.Logger;
 
 /**
  * NTNH Typed Runtime Registry for Climate Profiles.
  * Provides thread-safe, zero-allocation O(1) profile resolution in hot-path simulation.
  * Supports layered registration:
- * 1. Hardcoded canonical defaults (Earth, Duna, Eve, Laythe, Tekto, Vacuum bodies).
+ * 1. Safe Overworld default.
  * 2. Configuration overrides (Dimension_Weather_Profiles in Misc.cfg).
  * 3. Runtime API overrides.
  */
@@ -18,14 +19,19 @@ public class ClimateProfileRegistry {
     private static final ClimateProfile[] fastProfiles = new ClimateProfile[256];
     private static final ConcurrentHashMap<Integer, ClimateProfile> extendedProfiles = new ConcurrentHashMap<Integer, ClimateProfile>();
     private static final ConcurrentHashMap<String, ClimateProfile> namedProfiles = new ConcurrentHashMap<String, ClimateProfile>();
-    private static final Set<Integer> allowedGrabDims = Collections
-        .newSetFromMap(new ConcurrentHashMap<Integer, Boolean>());
+    private static final Logger LOGGER = Logger.getLogger("weather2");
+    private static final String LEGACY_DEFAULT_PROFILES = "0, 5, false, 3600, 0.25, 25, 0, true; "
+        + "duna, 9, false, 1800, 1.0, 10, 0, true; "
+        + "eve, 9, true, 800, 6.0, 3, 7, true; "
+        + "laythe, 9, false, 1800, 1.0, 10, 20, true; "
+        + "tekto, 8, false, 1800, 2.0, 10, 0, true";
 
     private static volatile boolean initialized = false;
+    private static boolean legacyConfigWarningLogged = false;
     private static String lastLoadedConfig = null;
 
     /**
-     * Initializes the registry with canonical NTNH defaults if not yet initialized.
+     * Initializes the registry with the safe default profile if not yet initialized.
      */
     public static synchronized void ensureInitialized() {
         if (!initialized) {
@@ -35,98 +41,18 @@ public class ClimateProfileRegistry {
     }
 
     /**
-     * Registers canonical built-in defaults for known NTNH dimensions.
+     * Registers the default profile for a new installation.
      */
     public static synchronized void registerDefaults() {
-        // Overworld (Earth, Dim 0): Localized early threat (F1 max, selective fragile grab only, calm 0.25x lightning)
         register(
             ClimateProfile.builder("overworld")
                 .dim(ClimateEngine.DIM_OVERWORLD)
                 .weatherEnabled(true)
-                .exactStage(5) // F1 max (STATE_STAGE1)
+                .exactStage(5)
                 .alwaysProgresses(false)
-                .deadlyCooldown(3600)
+                .deadlyCooldown(72000)
                 .lightningMultiplier(0.25F)
-                .spawnOdds(25, 0)
-                .grabBlocks(true)
-                .build());
-
-        // Duna (Mars-analog, Dim 16): Polar CO2 blizzards & equatorial dust devils
-        register(
-            ClimateProfile.builder("duna")
-                .dim(ClimateEngine.DIM_DUNA)
-                .weatherEnabled(true)
-                .exactStage(9) // F5
-                .alwaysProgresses(false)
-                .deadlyCooldown(1800)
-                .lightningMultiplier(1.0F)
-                .spawnOdds(10, 0)
-                .grabBlocks(true)
-                .build());
-
-        // Eve (Venus-analog, Dim 18): Supercell hell, instant F5/C5, 6x lightning, 40s cooldown
-        register(
-            ClimateProfile.builder("eve")
-                .dim(ClimateEngine.DIM_EVE)
-                .weatherEnabled(true)
-                .exactStage(9) // F5/C5
-                .alwaysProgresses(true)
-                .deadlyCooldown(800)
-                .lightningMultiplier(6.0F)
-                .spawnOdds(3, 7)
-                .grabBlocks(true)
-                .build());
-
-        // Laythe (Ocean moon, Dim 22): Severe ocean cyclones (C0..C5) & waterspouts
-        register(
-            ClimateProfile.builder("laythe")
-                .dim(ClimateEngine.DIM_LAYTHE)
-                .weatherEnabled(true)
-                .exactStage(9) // C5/F5
-                .alwaysProgresses(false)
-                .deadlyCooldown(1800)
-                .lightningMultiplier(1.0F)
-                .spawnOdds(10, 20)
-                .grabBlocks(true)
-                .build());
-
-        // Tekto (Titan-analog, Dim 24): Hydrocarbon storms capped at F4
-        register(
-            ClimateProfile.builder("tekto")
-                .dim(ClimateEngine.DIM_TEKTO)
-                .weatherEnabled(true)
-                .exactStage(8) // F4 cap
-                .alwaysProgresses(false)
-                .deadlyCooldown(1800)
-                .lightningMultiplier(2.0F)
-                .spawnOdds(10, 0)
-                .grabBlocks(true)
-                .build());
-
-        // Vacuum bodies: Moon (15), Ike (17), Dres (19), Moho (20), Minmus (21), Orbit (23), Thatmo (413025), Nether
-        // (-1)
-        registerVacuumBody("moon", 15);
-        registerVacuumBody("ike", 17);
-        registerVacuumBody("dres", 19);
-        registerVacuumBody("moho", 20);
-        registerVacuumBody("minmus", 21);
-        registerVacuumBody("orbit", 23);
-        registerVacuumBody("thatmo", 413025);
-        registerVacuumBody("nether", -1);
-    }
-
-    private static void registerVacuumBody(String name, int fallbackDim) {
-        int dim = ClimateEngine.resolveDimensionId(name);
-        if (dim == -999) dim = fallbackDim;
-        register(
-            ClimateProfile.builder(dim, name)
-                .weatherEnabled(false)
-                .exactStage(0)
-                .alwaysProgresses(false)
-                .deadlyCooldown(0)
-                .lightningMultiplier(1.0F)
-                .spawnOdds(0, 0)
-                .grabBlocks(false)
+                .spawnOdds(30, 0)
                 .build());
     }
 
@@ -150,14 +76,9 @@ public class ClimateProfileRegistry {
         }
 
         if (profile.name != null && !profile.name.isEmpty()) {
-            namedProfiles.put(profile.name.toLowerCase(), profile);
+            namedProfiles.put(profile.name.toLowerCase(Locale.ROOT), profile);
         }
 
-        if (profile.grabBlocks) {
-            allowedGrabDims.add(dim);
-        } else {
-            allowedGrabDims.remove(dim);
-        }
     }
 
     /**
@@ -183,7 +104,7 @@ public class ClimateProfileRegistry {
         if (name == null) return null;
         return namedProfiles.get(
             name.trim()
-                .toLowerCase());
+                .toLowerCase(Locale.ROOT));
     }
 
     public static boolean has(int dim) {
@@ -194,9 +115,9 @@ public class ClimateProfileRegistry {
         return extendedProfiles.containsKey(dim);
     }
 
+    @Deprecated
     public static boolean isGrabAllowed(int dim) {
-        ensureInitialized();
-        return allowedGrabDims.contains(dim);
+        return false;
     }
 
     public static Collection<ClimateProfile> getAll() {
@@ -211,7 +132,7 @@ public class ClimateProfileRegistry {
 
     /**
      * Parses and applies configuration overrides from Misc.cfg string.
-     * Retains 100% backward compatibility with legacy 8-tuple and 6-tuple formats.
+     * Retains old profile layouts while ignoring their block-grab setting.
      */
     public static synchronized void loadFromConfig(String cfg) {
         ensureInitialized();
@@ -221,6 +142,11 @@ public class ClimateProfileRegistry {
         }
         if (cfg.equals(lastLoadedConfig)) {
             return;
+        }
+        String configKey = cfg;
+        if (normalize(cfg).equals(normalize(LEGACY_DEFAULT_PROFILES))) {
+            cfg = ClimateEngine.DEFAULT_WEATHER_PROFILES;
+            warnLegacyConfigIgnored();
         }
 
         String[] lines = cfg.split("[;\\r\\n]+");
@@ -234,7 +160,7 @@ public class ClimateProfileRegistry {
             String dimToken = parts[0].trim();
             int dim = ClimateEngine.resolveDimensionId(dimToken);
             if (dim == -999) {
-                ClimateProfile existing = namedProfiles.get(dimToken.toLowerCase());
+                ClimateProfile existing = namedProfiles.get(dimToken.toLowerCase(Locale.ROOT));
                 if (existing != null) {
                     dim = existing.dim;
                 }
@@ -252,7 +178,7 @@ public class ClimateProfileRegistry {
             float lightningMul = 1.0F;
             int landSpawnOdds = 10;
             int oceanSpawnOdds = 0;
-            boolean grabBlocks = false;
+            String legacyGrabField = null;
 
             if (parts.length >= 8) {
                 try {
@@ -271,7 +197,7 @@ public class ClimateProfileRegistry {
                     oceanSpawnOdds = Integer.parseInt(parts[6].trim());
                 } catch (Throwable ignored) {}
                 try {
-                    grabBlocks = Boolean.parseBoolean(parts[7].trim());
+                    legacyGrabField = parts[7].trim();
                 } catch (Throwable ignored) {}
             } else if (parts.length >= 6) {
                 try {
@@ -284,12 +210,15 @@ public class ClimateProfileRegistry {
                     landSpawnOdds = Integer.parseInt(parts[4].trim());
                 } catch (Throwable ignored) {}
                 try {
-                    grabBlocks = Boolean.parseBoolean(parts[5].trim());
+                    legacyGrabField = parts[5].trim();
                 } catch (Throwable ignored) {}
                 alwaysProgresses = (rawStage >= 9 && deadlyCooldown <= 1000);
                 if (dimToken.equalsIgnoreCase("laythe") || dimToken.equalsIgnoreCase("eve")) {
                     oceanSpawnOdds = landSpawnOdds * 2;
                 }
+            }
+            if (Boolean.parseBoolean(legacyGrabField)) {
+                warnLegacyConfigIgnored();
             }
 
             ClimateProfile.Builder b = ClimateProfile.builder(dim, dimToken)
@@ -298,8 +227,7 @@ public class ClimateProfileRegistry {
                 .alwaysProgresses(alwaysProgresses)
                 .deadlyCooldown(deadlyCooldown)
                 .lightningMultiplier(lightningMul)
-                .spawnOdds(landSpawnOdds, oceanSpawnOdds)
-                .grabBlocks(grabBlocks);
+                .spawnOdds(landSpawnOdds, oceanSpawnOdds);
 
             // Special-case legacy Overworld stage 0 in config -> migrate to localized F1 (stage 5)
             if ("0".equals(stageToken)
@@ -310,7 +238,20 @@ public class ClimateProfileRegistry {
             register(b.build());
         }
 
-        lastLoadedConfig = cfg;
+        lastLoadedConfig = configKey;
+    }
+
+    private static String normalize(String value) {
+        return value.toLowerCase(Locale.ROOT)
+            .replaceAll("\\s+", "");
+    }
+
+    private static void warnLegacyConfigIgnored() {
+        if (!legacyConfigWarningLogged) {
+            LOGGER.warning(
+                "Weather2 ignored legacy tornado block-grab settings and migrated bundled modpack profiles to safe defaults.");
+            legacyConfigWarningLogged = true;
+        }
     }
 
     /**
@@ -322,7 +263,6 @@ public class ClimateProfileRegistry {
         }
         extendedProfiles.clear();
         namedProfiles.clear();
-        allowedGrabDims.clear();
         lastLoadedConfig = null;
         initialized = false;
         ensureInitialized();

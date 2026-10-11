@@ -6,10 +6,13 @@ import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertSame;
 import static org.junit.Assert.assertTrue;
 
+import java.util.Locale;
+
 import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
 
+import weather2.climate.ClimateEngine;
 import weather2.climate.ClimateProfile;
 import weather2.climate.ClimateProfileRegistry;
 import weather2.harness.TestEnvironment;
@@ -43,7 +46,7 @@ public class ClimateRegistryTest {
         assertEquals("Deadly cooldown should clamp to 0", 0, pF5.deadlyCooldown);
         assertEquals(0.1F, pF5.lightningMultiplier, 0.001F);
         assertEquals("Land spawn odds should clamp to 0", 0, pF5.landSpawnOdds);
-        assertTrue("Grab blocks should be true", pF5.grabBlocks);
+        assertFalse("Legacy grab options must not enable block destruction", pF5.grabBlocks);
     }
 
     @Test
@@ -78,26 +81,22 @@ public class ClimateRegistryTest {
             "Overworld maxStage should be 5 (F1 localized threat) even after config load",
             5,
             overworld.maxStage);
-        assertTrue("Overworld grabBlocks must be true for selective grab", overworld.grabBlocks);
-        assertTrue(
-            "Overworld grab should be allowed in registry for selective grab",
-            ClimateProfileRegistry.isGrabAllowed(0));
+        assertFalse("Overworld grabBlocks must remain disabled", overworld.grabBlocks);
+        assertFalse(ClimateProfileRegistry.isGrabAllowed(0));
 
-        // Duna (dim 16)
+        // Modpack dimensions stay disabled unless explicitly configured.
         ClimateProfile duna = ClimateProfileRegistry.get(16);
         assertNotNull(duna);
-        assertEquals(9, duna.maxStage);
-        assertTrue(duna.grabBlocks);
-        assertTrue(ClimateProfileRegistry.isGrabAllowed(16));
+        assertFalse(duna.weatherEnabled);
+        assertFalse(duna.grabBlocks);
+        assertFalse(ClimateProfileRegistry.isGrabAllowed(16));
 
         // Eve (dim 18)
         ClimateProfile eve = ClimateProfileRegistry.get(18);
         assertNotNull(eve);
-        assertEquals(9, eve.maxStage);
-        assertTrue(eve.alwaysProgresses);
-        assertEquals(800, eve.deadlyCooldown);
-        assertEquals(6.0F, eve.lightningMultiplier, 0.001F);
-        assertTrue(ClimateProfileRegistry.isGrabAllowed(18));
+        assertFalse(eve.weatherEnabled);
+        assertFalse(eve.alwaysProgresses);
+        assertFalse(ClimateProfileRegistry.isGrabAllowed(18));
 
         // Vacuum bodies
         ClimateProfile moon = ClimateProfileRegistry.get(15);
@@ -113,12 +112,36 @@ public class ClimateRegistryTest {
 
     @Test
     public void testNamedLookup() {
+        ClimateProfileRegistry
+            .loadFromConfig("eve, 9, true, 800, 6.0, 3, 7, false; duna, 9, false, 1800, 1.0, 10, 0, false");
         ClimateProfile eve = ClimateProfileRegistry.get(18);
         ClimateProfile duna = ClimateProfileRegistry.get(16);
 
         assertSame("Named lookup for 'eve' failed", eve, ClimateProfileRegistry.get("eve"));
         assertSame("Case-insensitive lookup for 'EVE' failed", eve, ClimateProfileRegistry.get("EVE"));
         assertSame("Named lookup for 'duna' failed", duna, ClimateProfileRegistry.get("duna"));
+    }
+
+    @Test
+    public void testClimateNamesAreIndependentOfDefaultLocale() {
+        Locale oldLocale = Locale.getDefault();
+        try {
+            Locale.setDefault(new Locale("tr", "TR"));
+            assertEquals(17, ClimateEngine.resolveDimensionId("IKE"));
+
+            ClimateProfile customPlanet = ClimateProfile.builder(77, "ISLAND")
+                .weatherEnabled(true)
+                .exactStage(5)
+                .build();
+            ClimateProfileRegistry.register(customPlanet);
+            assertSame(customPlanet, ClimateProfileRegistry.get("island"));
+
+            ClimateProfileRegistry.loadFromConfig("ISLAND, 6, 72000, 0.25, 30, false");
+            assertEquals(77, ClimateProfileRegistry.get(77).dim);
+            assertEquals(72000, ClimateProfileRegistry.get(77).deadlyCooldown);
+        } finally {
+            Locale.setDefault(oldLocale);
+        }
     }
 
     @Test
@@ -136,7 +159,8 @@ public class ClimateRegistryTest {
         assertTrue("Registry should have dim 77", ClimateProfileRegistry.has(77));
         assertSame("get(77) mismatch", customPlanet, ClimateProfileRegistry.get(77));
         assertSame("get('ares') mismatch", customPlanet, ClimateProfileRegistry.get("ares"));
-        assertTrue("Grab should be allowed on Ares", ClimateProfileRegistry.isGrabAllowed(77));
+        assertFalse("Programmatic legacy profile cannot authorize block destruction", customPlanet.grabBlocks);
+        assertFalse(ClimateProfileRegistry.isGrabAllowed(77));
     }
 
     @Test
@@ -174,12 +198,14 @@ public class ClimateRegistryTest {
         assertTrue("Rain flag must sync from data compound", wmClient.isVanillaRainActiveOnServer);
         assertTrue("Thunder flag must sync from data compound", wmClient.isVanillaThunderActiveOnServer);
 
-        // Verify that a StormObject capped to STATE_THUNDER by vanilla /weather thunder restores maxStage on
-        // initRealStorm
+        ClimateProfileRegistry.loadFromConfig(
+            "duna, 9, false, 1800, 1.0, 10, 0, false; " + "tekto, 8, false, 1800, 2.0, 10, 0, false; "
+                + "eve, 9, true, 800, 6.0, 3, 7, false");
+        // Explicit profiles still control stage restoration and lightning odds.
         weather2.weathersystem.storm.StormObject so = weather2.harness.MockStormFactory.create(1, 1L, 16);
         so.maxIntensityStage = weather2.weathersystem.storm.StormObject.STATE_THUNDER;
         weather2.climate.ClimateEngine.onInitRealStorm(so);
-        assertEquals("Duna storm must restore maxStage=9 on initRealStorm", 9, so.maxIntensityStage);
+        assertEquals("Explicit Duna profile must restore maxStage=9 on initRealStorm", 9, so.maxIntensityStage);
 
         // Verify per-dimension lightning frequency differentiation (Overworld 0.25x vs Duna 1.0x vs Tekto 2.0x vs Eve
         // 6.0x)

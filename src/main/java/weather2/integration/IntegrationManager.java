@@ -7,11 +7,7 @@ import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 
 import cpw.mods.fml.common.Loader;
-import weather2.integration.cofh.CoFHEnergyAdapter;
 import weather2.integration.dsurround.DSurroundWeatherAdapter;
-import weather2.integration.hbm.HbmEnergyAdapter;
-import weather2.integration.hbm.HbmProtectionAdapter;
-import weather2.integration.hbm.HbmSpaceAdapter;
 
 /**
  * NTNH Deep Module: Central Integration Manager.
@@ -20,25 +16,15 @@ import weather2.integration.hbm.HbmSpaceAdapter;
  */
 public class IntegrationManager {
 
-    public static final String MODID_HBM = "hbm";
-    public static final String MODID_COFH = "CoFHCore";
     public static final String MODID_DSURROUND = "dsurround";
-    public static final String MODID_MINETWEAKER = "MineTweaker3";
 
-    private static Boolean hbmLoaded = null;
-    private static Boolean cofhLoaded = null;
     private static Boolean dsurroundLoaded = null;
-    private static Boolean minetweakerLoaded = null;
 
     private static final List<DiagnosableAdapter> ADAPTERS = new ArrayList<DiagnosableAdapter>();
     private static final Map<String, String> CIRCUIT_BREAKER_FAILS = new ConcurrentHashMap<String, String>();
     private static boolean hasLoggedDiagnosticSummary = false;
 
     static {
-        registerAdapter(HbmSpaceAdapter.INSTANCE);
-        registerAdapter(HbmProtectionAdapter.INSTANCE);
-        registerAdapter(HbmEnergyAdapter.INSTANCE);
-        registerAdapter(CoFHEnergyAdapter.INSTANCE);
         registerAdapter(DSurroundWeatherAdapter.INSTANCE);
     }
 
@@ -57,32 +43,11 @@ public class IntegrationManager {
         }
     }
 
-    public static boolean isHbmLoaded() {
-        if (hbmLoaded == null) {
-            hbmLoaded = isModLoaded(MODID_HBM);
-        }
-        return hbmLoaded;
-    }
-
-    public static boolean isCoFHCoreLoaded() {
-        if (cofhLoaded == null) {
-            cofhLoaded = isModLoaded(MODID_COFH);
-        }
-        return cofhLoaded;
-    }
-
     public static boolean isDSurroundLoaded() {
         if (dsurroundLoaded == null) {
             dsurroundLoaded = isModLoaded(MODID_DSURROUND);
         }
         return dsurroundLoaded;
-    }
-
-    public static boolean isMineTweakerLoaded() {
-        if (minetweakerLoaded == null) {
-            minetweakerLoaded = isModLoaded(MODID_MINETWEAKER);
-        }
-        return minetweakerLoaded;
     }
 
     // Diagnostics & Health Reporting
@@ -151,27 +116,12 @@ public class IntegrationManager {
     }
 
     // Testing and injection hooks
-    public static void setHbmLoaded(Boolean loaded) {
-        hbmLoaded = loaded;
-    }
-
-    public static void setCoFHCoreLoaded(Boolean loaded) {
-        cofhLoaded = loaded;
-    }
-
     public static void setDSurroundLoaded(Boolean loaded) {
         dsurroundLoaded = loaded;
     }
 
-    public static void setMineTweakerLoaded(Boolean loaded) {
-        minetweakerLoaded = loaded;
-    }
-
     public static void resetCache() {
-        hbmLoaded = null;
-        cofhLoaded = null;
         dsurroundLoaded = null;
-        minetweakerLoaded = null;
         hasLoggedDiagnosticSummary = false;
         CIRCUIT_BREAKER_FAILS.clear();
     }

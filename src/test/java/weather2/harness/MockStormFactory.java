@@ -2,6 +2,8 @@ package weather2.harness;
 
 import java.lang.reflect.Field;
 
+import net.minecraft.util.Vec3;
+
 import sun.misc.Unsafe;
 import weather2.weathersystem.storm.StormObject;
 
@@ -41,6 +43,19 @@ public final class MockStormFactory {
             storm.levelCurIntensityStage = stage;
             storm.ID = id;
             storm.isDead = false;
+            storm.pos = Vec3.createVectorHelper(0.0D, StormObject.static_YPos_layer0, 0.0D);
+            storm.posGround = Vec3.createVectorHelper(0.0D, 0.0D, 0.0D);
+            storm.motion = Vec3.createVectorHelper(0.0D, 0.0D, 0.0D);
+            storm.posBaseFormationPos = storm.pos;
+            storm.pullPlayers = false;
+            storm.pullLivingEntities = false;
+            storm.controlledTornado = false;
+            storm.tornadoRemainingTicks = 0;
+            storm.tornadoActive = false;
+            storm.tornadoEndPending = false;
+            storm.tornadoEndReason = null;
+            storm.tornadoFormationPending = false;
+            storm.tornadoFormationVetoed = false;
             storm.manager = new weather2.weathersystem.WeatherManagerBase(dim);
             return storm;
         } catch (Exception e) {

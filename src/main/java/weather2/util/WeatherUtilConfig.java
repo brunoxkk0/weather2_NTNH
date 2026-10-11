@@ -7,6 +7,7 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Iterator;
 import java.util.List;
+import java.util.logging.Logger;
 
 import net.minecraft.nbt.CompressedStreamTools;
 import net.minecraft.nbt.NBTTagCompound;
@@ -23,6 +24,9 @@ import weather2.Weather;
 import weather2.config.ConfigMisc;
 
 public class WeatherUtilConfig {
+
+    private static final Logger LOGGER = Logger.getLogger("weather2");
+    private static boolean legacyDimensionDefaultsWarningLogged;
 
     public static List listDimensionsWeather = new ArrayList();
     public static List listDimensionsClouds = new ArrayList();
@@ -153,6 +157,8 @@ public class WeatherUtilConfig {
     }
 
     public static void processNBTToModConfigServer() {
+        nbtServerData.removeTag("btn_" + CMD_BTN_COMP_SNOWFALLBLOCKS);
+        nbtServerData.removeTag("btn_" + CMD_BTN_PREF_BLOCKDESTRUCTION);
         nbtSaveDataServer();
         Weather.dbg("processNBTToModConfigServer");
         Weather.dbg("nbtServerData: " + nbtServerData);
@@ -174,13 +180,6 @@ public class WeatherUtilConfig {
                     } else {
                         ConfigMisc.lockServerWeatherMode = -1;
                     }
-            }
-
-            if (nbtServerData.hasKey("btn_" + CMD_BTN_COMP_SNOWFALLBLOCKS)) {
-                boolean ex = ((String) LIST_TOGGLE.get(nbtServerData.getInteger("btn_" + CMD_BTN_COMP_SNOWFALLBLOCKS)))
-                    .equalsIgnoreCase("on");
-                ConfigMisc.Snow_PerformSnowfall = ex;
-                ConfigMisc.Snow_ExtraPileUp = ex;
             }
 
             if (nbtServerData.hasKey("btn_" + CMD_BTN_PREF_RATEOFSTORM)) {
@@ -228,11 +227,6 @@ public class WeatherUtilConfig {
                             .equalsIgnoreCase("none")) {
                                 ConfigMisc.Player_Storm_Rain_OddsTo1 = -1;
                             }
-            }
-
-            if (nbtServerData.hasKey("btn_" + CMD_BTN_PREF_BLOCKDESTRUCTION)) {
-                ConfigMisc.Storm_Tornado_grabBlocks = ((String) LIST_TOGGLE
-                    .get(nbtServerData.getInteger("btn_" + CMD_BTN_PREF_BLOCKDESTRUCTION))).equalsIgnoreCase("on");
             }
 
             if (nbtServerData.hasKey("btn_" + CMD_BTN_PREF_TORNADOANDCYCLONES)) {
@@ -293,7 +287,7 @@ public class WeatherUtilConfig {
 
     public static void nbtReceiveClientData(NBTTagCompound parNBT) {
         for (int i = 0; i <= CMD_BTN_HIGHEST_ID; ++i) {
-            if (parNBT.hasKey("btn_" + i)) {
+            if (i != CMD_BTN_COMP_SNOWFALLBLOCKS && i != CMD_BTN_PREF_BLOCKDESTRUCTION && parNBT.hasKey("btn_" + i)) {
                 nbtServerData.setInteger("btn_" + i, parNBT.getInteger("btn_" + i));
             }
         }
@@ -347,10 +341,26 @@ public class WeatherUtilConfig {
     }
 
     public static void processLists() {
+        ConfigMisc.Dimension_List_Weather = migrateLegacyDimensionDefault(ConfigMisc.Dimension_List_Weather);
+        ConfigMisc.Dimension_List_Clouds = migrateLegacyDimensionDefault(ConfigMisc.Dimension_List_Clouds);
+        ConfigMisc.Dimension_List_Storms = migrateLegacyDimensionDefault(ConfigMisc.Dimension_List_Storms);
+        ConfigMisc.Dimension_List_WindEffects = migrateLegacyDimensionDefault(ConfigMisc.Dimension_List_WindEffects);
         listDimensionsWeather = parseList(ConfigMisc.Dimension_List_Weather);
         listDimensionsClouds = parseList(ConfigMisc.Dimension_List_Clouds);
         listDimensionsStorms = parseList(ConfigMisc.Dimension_List_Storms);
         listDimensionsWindEffects = parseList(ConfigMisc.Dimension_List_WindEffects);
+    }
+
+    private static String migrateLegacyDimensionDefault(String configuredDimensions) {
+        if (configuredDimensions == null) return "0";
+        if (parseList(configuredDimensions).equals(Arrays.asList(Integer.valueOf(0), Integer.valueOf(-127)))) {
+            if (!legacyDimensionDefaultsWarningLogged) {
+                LOGGER.warning("Weather2 migrated its previous default dimension list to Overworld only.");
+                legacyDimensionDefaultsWarningLogged = true;
+            }
+            return "0";
+        }
+        return configuredDimensions;
     }
 
     public static void processListsReverse() {
@@ -361,8 +371,13 @@ public class WeatherUtilConfig {
     }
 
     public static List parseList(String parData) {
-        String listStr = parData.replace(",", " ");
-        String[] arrStr = listStr.split(" ");
+        if (parData == null || parData.trim()
+            .isEmpty()) {
+            return new ArrayList();
+        }
+        String listStr = parData.replace(",", " ")
+            .trim();
+        String[] arrStr = listStr.split("\\s+");
         Integer[] arrInt = new Integer[arrStr.length];
 
         for (int i = 0; i < arrStr.length; ++i) {
@@ -436,12 +451,10 @@ public class WeatherUtilConfig {
         listSettingsClient.add(Integer.valueOf(CMD_BTN_COMP_PARTICLESNOMODS));
         listSettingsServer.add(Integer.valueOf(CMD_BTN_COMP_STORM));
         listSettingsServer.add(Integer.valueOf(CMD_BTN_COMP_LOCK));
-        listSettingsServer.add(Integer.valueOf(CMD_BTN_COMP_SNOWFALLBLOCKS));
         listSettingsServer.add(Integer.valueOf(CMD_BTN_COMP_LEAFFALLBLOCKS));
         listSettingsServer.add(Integer.valueOf(CMD_BTN_PREF_RATEOFSTORM));
         listSettingsServer.add(Integer.valueOf(CMD_BTN_PREF_CHANCEOFSTORM));
         listSettingsServer.add(Integer.valueOf(CMD_BTN_PREF_CHANCEOFRAIN));
-        listSettingsServer.add(Integer.valueOf(CMD_BTN_PREF_BLOCKDESTRUCTION));
         listSettingsServer.add(Integer.valueOf(CMD_BTN_PREF_TORNADOANDCYCLONES));
     }
 }

@@ -28,7 +28,6 @@ import weather2.block.TileEntityWindVane;
 import weather2.entity.EntityIceBall;
 import weather2.entity.EntityLightningBolt;
 import weather2.entity.EntityMovingBlock;
-import weather2.util.WeatherUtil;
 import weather2.util.WeatherUtilConfig;
 
 public class CommonProxy implements IGuiHandler {
@@ -44,7 +43,6 @@ public class CommonProxy implements IGuiHandler {
 
     public void init() {
         tab = new CreativeTabWeather("Weather2");
-        WeatherUtil.doBlockList();
         WeatherUtilConfig.processLists();
         addMapping(EntityIceBall.class, "Weather Hail", 0, 128, 5, true);
         addMapping(EntityMovingBlock.class, "Moving Block", 1, 128, 5, true);
@@ -53,6 +51,7 @@ public class CommonProxy implements IGuiHandler {
         addBlock(blockTSensor = new BlockTSensor(), "TornadoSensor", "Tornado Sensor");
         addBlock(blockTSiren = new BlockTSiren(), TileEntityTSiren.class, "TornadoSiren", "Tornado Siren");
         addBlock(blockWindVane = new BlockWindVane(), TileEntityWindVane.class, "WindVane", "Wind Vane");
+        blockWindVane.setBlockTextureName(Weather.modID + ":windvane");
         addBlock(
             blockWeatherForecast = new BlockWeatherForecast(),
             TileEntityWeatherForecast.class,
@@ -63,12 +62,14 @@ public class CommonProxy implements IGuiHandler {
             TileEntityWeatherMachine.class,
             "WeatherMachine",
             "Weather Machine (right click to cycle)");
-        addBlock(
-            blockWeatherDeflector = new BlockWeatherDeflector(),
-            TileEntityWeatherDeflector.class,
-            "WeatherDeflector",
-            "Weather Deflector");
+        blockWeatherDeflector = new BlockWeatherDeflector();
+        GameRegistry.registerBlock(blockWeatherDeflector, "WeatherDeflector");
+        blockWeatherDeflector.setBlockName(Weather.modID + ":WeatherDeflector");
+        blockWeatherDeflector.setBlockTextureName(Weather.modID + ":WeatherDeflector");
+        LanguageRegistry.addName(blockWeatherDeflector, "Weather Deflector");
+        GameRegistry.registerTileEntity(TileEntityWeatherDeflector.class, "WeatherDeflector");
         addBlock(blockAnemometer = new BlockAnemometer(), TileEntityAnemometer.class, "Anemometer", "Anemometer");
+        blockAnemometer.setBlockTextureName(Weather.modID + ":anemometer");
         // NTNH end
         GameRegistry.addRecipe(
             new ItemStack(blockTSensor, 1),
@@ -90,10 +91,6 @@ public class CommonProxy implements IGuiHandler {
             new ItemStack(blockWeatherMachine, 1),
             new Object[] { "XDX", "DID", "XDX", Character.valueOf('D'), Items.redstone, Character.valueOf('I'),
                 Items.diamond, Character.valueOf('X'), Items.iron_ingot });
-        GameRegistry.addRecipe(
-            new ItemStack(blockWeatherDeflector, 1),
-            new Object[] { "XDX", "DID", "XDX", Character.valueOf('D'), Items.redstone, Character.valueOf('I'),
-                blockWeatherMachine, Character.valueOf('X'), Items.iron_ingot });
         LanguageRegistry.instance()
             .addStringLocalization("itemGroup.Weather2", "Weather2 Items");
     }

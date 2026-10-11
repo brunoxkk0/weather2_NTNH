@@ -1,9 +1,9 @@
 package weather2.climate;
 
 import java.lang.reflect.Field;
+import java.util.Locale;
 
 import weather2.config.ConfigMisc;
-import weather2.integration.hbm.HbmSpaceAdapter;
 import weather2.weathersystem.storm.StormObject;
 
 /**
@@ -19,11 +19,7 @@ public class ClimateEngine {
     public static final int DIM_LAYTHE = 22;
     public static final int DIM_TEKTO = 24;
 
-    public static final String DEFAULT_WEATHER_PROFILES = "0, 5, false, 3600, 0.25, 25, 0, true; "
-        + "duna, 9, false, 1800, 1.0, 10, 0, true; "
-        + "eve, 9, true, 800, 6.0, 3, 7, true; "
-        + "laythe, 9, false, 1800, 1.0, 10, 20, true; "
-        + "tekto, 8, false, 1800, 2.0, 10, 0, true";
+    public static final String DEFAULT_WEATHER_PROFILES = "0, 5, false, 72000, 0.25, 30, 0, false";
 
     /**
      * Resolves dimension IDs dynamically from NTM SpaceConfig or safe fallback constants.
@@ -31,16 +27,11 @@ public class ClimateEngine {
     public static int resolveDimensionId(String token) {
         if (token == null) return -999;
         token = token.trim()
-            .toLowerCase();
+            .toLowerCase(Locale.ROOT);
         try {
             return Integer.parseInt(token);
         } catch (NumberFormatException ignored) {}
 
-        // Dynamic NTM SpaceConfig lookup via HbmSpaceAdapter
-        Integer spaceDim = HbmSpaceAdapter.resolveSpaceDimension(token);
-        if (spaceDim != null) return spaceDim.intValue();
-
-        // Safe NTNH fallbacks if HBM is not loaded or reflection fails
         if (token.equals("overworld")) return 0;
         if (token.equals("nether")) return -1;
         if (token.equals("duna")) return DIM_DUNA;
@@ -56,14 +47,6 @@ public class ClimateEngine {
         if (token.equals("thatmo")) return 413025;
 
         return -999;
-    }
-
-    /**
-     * Checks if a world has an atmosphere based on NTM's WorldProviderCelestial.hasWeatherCycle().
-     * On vacuum worlds (Moon, Minmus, Ike, Dres, Moho, Thatmo), returns false.
-     */
-    public static boolean isAtmosphericWorld(Object worldObj) {
-        return HbmSpaceAdapter.isAtmosphericWorld(worldObj);
     }
 
     public static synchronized void ensureProfilesLoaded() {
@@ -154,9 +137,9 @@ public class ClimateEngine {
         return defaultOdds;
     }
 
+    @Deprecated
     public static boolean isDimensionGrabAllowed(int dim) {
-        ensureProfilesLoaded();
-        return ClimateProfileRegistry.isGrabAllowed(dim);
+        return false;
     }
 
     public static boolean shouldSpawnFunnel(StormObject so) {

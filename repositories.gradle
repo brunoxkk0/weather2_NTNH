@@ -3,7 +3,10 @@
 repositories {
     exclusiveContent {
         forRepository {
-            mavenLocal()
+            maven {
+                name = "UniMixins"
+                url = "https://nexus.gtnewhorizons.com/repository/public/"
+            }
         }
         filter {
             includeGroup("io.github.legacymoddingmc")

@@ -4,14 +4,12 @@ import java.util.List;
 
 import net.minecraft.entity.Entity;
 import net.minecraft.entity.EntityLivingBase;
-import net.minecraft.util.DamageSource;
 import net.minecraft.util.MathHelper;
 import net.minecraft.util.MovingObjectPosition;
 import net.minecraft.util.Vec3;
 import net.minecraft.world.World;
 
 import CoroUtil.api.weather.IWindHandler;
-import CoroUtil.componentAI.ICoroAI;
 import CoroUtil.entity.EntityThrowableUsefull;
 import cpw.mods.fml.relauncher.Side;
 import cpw.mods.fml.relauncher.SideOnly;
@@ -101,23 +99,6 @@ public class EntityIceBall extends EntityThrowableUsefull implements IWindHandle
     }
 
     protected void onImpact(MovingObjectPosition movingobjectposition) {
-        if (movingobjectposition.entityHit != null && !this.worldObj.isRemote) {
-            byte damage = 5;
-            if (movingobjectposition.entityHit instanceof ICoroAI && this.getThrower() instanceof ICoroAI) {
-                if (((ICoroAI) this.getThrower()).getAIAgent().dipl_info
-                    != ((ICoroAI) movingobjectposition.entityHit).getAIAgent().dipl_info) {
-                    movingobjectposition.entityHit
-                        .attackEntityFrom(DamageSource.causeThrownDamage(this, this.getThrower()), (float) damage);
-                }
-            } else {
-                movingobjectposition.entityHit.attackEntityFrom(DamageSource.fallingBlock, (float) damage);
-            }
-
-            if (!this.worldObj.isRemote) {
-                this.setDead();
-            }
-        }
-
         if (!this.worldObj.isRemote) {
             this.worldObj.playSoundEffect(this.posX, this.posY, this.posZ, "step.stone", 3.0F, 5.0F);
             this.setDead();

@@ -4,7 +4,7 @@ import java.io.File;
 
 import modconfig.ConfigComment;
 import modconfig.IConfigCategory;
-import weather2.util.WeatherUtil;
+import weather2.climate.ClimateEngine;
 import weather2.util.WeatherUtilConfig;
 
 public class ConfigMisc implements IConfigCategory {
@@ -38,48 +38,18 @@ public class ConfigMisc implements IConfigCategory {
     @ConfigComment({
         "How often in ticks to run the storm spawn/remove checks. CHANGING THIS WILL CHANGE STORM FREQUENCY BY THE SAME FACTOR e.g. doubling this will make storms twice as rare (but will also take twice as long to \'remove\' storms that are \'dead\')." })
     public static int tickerRateSyncStormSpawnOrRemoveChecks = 20;
-    @ConfigComment({ "Grab player or not" })
-    public static boolean Storm_Tornado_grabPlayer = true;
-    @ConfigComment({ "Prevent grabbing of non players" })
-    public static boolean Storm_Tornado_grabPlayersOnly = false;
-    @ConfigComment({ "Tear up blocks from the ground based on conditions defined" })
-    public static boolean Storm_Tornado_grabBlocks = true;
-    // NTNH start: declarative dimension weather profiles & block destruction whitelist
     @ConfigComment({
-        "Comma-separated list of dimension IDs where tornados are allowed to grab blocks. All other dimensions are 100% immune." })
-    public static String Dimension_List_TornadoGrabBlocks = "0, 16, 18, 22, 24";
-
-    @ConfigComment({
-        "Declarative weather profiles per dimension: dimToken, maxStage, alwaysProgresses, deadlyCooldown, lightningMultiplier, landSpawnOdds, oceanSpawnOdds, grabBlocks" })
-    public static String Dimension_Weather_Profiles = "0, 5, false, 3600, 0.25, 25, 0, true; duna, 9, false, 1800, 1.0, 10, 0, true; eve, 9, true, 800, 6.0, 3, 7, true; laythe, 9, false, 1800, 1.0, 10, 20, true; tekto, 8, false, 1800, 2.0, 10, 0, true";
-    @ConfigComment({ "Maximum flying EntityMovingBlock entities allowed per dimension to protect server TPS" })
-    public static int Storm_Tornado_maxBlocksPerDimension = 200;
-    // NTNH end
-    @ConfigComment({ "Grab blocks based on how well a diamond axe can mine the block, so mostly wooden blocks" })
-    public static boolean Storm_Tornado_GrabCond_StrengthGrabbing = true;
-    @ConfigComment({ "Use a list of blocks instead of grabbing based on calculated strength of block" })
-    public static boolean Storm_Tornado_GrabCond_List = false;
-    public static boolean Storm_Tornado_GrabCond_List_PartialMatches = false;
-    @ConfigComment({ "Treat block grab list as a blacklist instead of whitelist" })
-    public static boolean Storm_Tornado_GrabListBlacklistMode = false;
-    public static String Storm_Tornado_GrabList = "planks, leaves";
-    public static int Storm_Tornado_maxBlocksPerStorm = 200;
-    public static int Storm_Tornado_maxBlocksGrabbedPerTick = 5;
-    @ConfigComment({ "How rarely a block will be removed while spinning around a tornado" })
-    public static int Storm_Tornado_rarityOfDisintegrate = 15;
-    public static int Storm_Tornado_rarityOfBreakOnFall = 5;
-    @ConfigComment({ ":D" })
-    public static int Storm_Tornado_rarityOfFirenado = -1;
-    @ConfigComment({ "Prevents tearing up of dirt, grass, sand and logs, overrides all other conditions" })
-    public static boolean Storm_Tornado_RefinedGrabRules = true;
+        "Weather profile for each configured dimension: dimToken, maxStage, alwaysProgresses, deadlyCooldown, lightningMultiplier, landSpawnOdds, oceanSpawnOdds, legacyGrabBlocks" })
+    public static String Dimension_Weather_Profiles = ClimateEngine.DEFAULT_WEATHER_PROFILES;
+    @ConfigComment({ "Maximum duration of a natural tornado funnel in ticks" })
+    public static int Tornado_DefaultDurationTicks = 2400;
     @ConfigComment({ "Make tornados initial heading aimed towards closest player" })
-    public static boolean Storm_Tornado_aimAtPlayerOnSpawn = true;
+    public static boolean Storm_Tornado_aimAtPlayerOnSpawn = false;
     @ConfigComment({ "Accuracy of tornado aimed at player" })
     public static int Storm_Tornado_aimAtPlayerAngleVariance = 5;
     @ConfigComment({ "Makes weather boring! or peacefull?" })
     public static boolean Storm_NoTornadosOrCyclones = false;
     public static int Storm_OddsTo1OfHighWindWaterSpout = 150;
-    public static boolean Storm_FlyingBlocksHurt = true;
     @ConfigComment({
         "Maximum possible stormfronts (or, more corrently, cloud formations) per player. Reducing this will improve network bandwidth." })
     public static int Storm_MaxPerPlayerPerLayer = 20;
@@ -110,20 +80,13 @@ public class ConfigMisc implements IConfigCategory {
     public static int Cloud_Formation_MinDistBetweenSpawned = 256;
     public static boolean Cloud_Layer1_Enable = false;
     public static int Cloud_Layer0_Height = 200;
-    public static int Lightning_OddsTo1OfFire = 20;
-    public static int Lightning_lifetimeOfFire = 3;
-    public static boolean Snow_PerformSnowfall = false;
-    public static boolean Snow_ExtraPileUp = false;
-    public static int Snow_RarityOfBuildup = 64;
-    public static int Snow_MaxBlockBuildupHeight = 3;
-    public static boolean Snow_SmoothOutPlacement = false;
     public static boolean Wind_Particle_leafs = true;
     public static double Wind_Particle_effect_rate = 1.0D;
     public static boolean Wind_Particle_air = true;
     public static boolean Wind_Particle_sand = true;
     public static boolean Wind_Particle_waterfall = true;
     public static boolean Wind_Particle_fire = true;
-    public static boolean Wind_NoWindEvents = true;
+    public static boolean Wind_NoWindEvents = false;
     public static int Thread_Particle_Process_Delay = 400;
     public static boolean Particle_RainSnow = true;
     public static boolean Particle_VanillaAndWeatherOnly = false;
@@ -136,10 +99,10 @@ public class ConfigMisc implements IConfigCategory {
     // NTNH: [FIX] (registry): Removed legacy 1.6.4 Block_*ID fields; Forge 1.7.10 auto-assigns block IDs via
     // GameRegistry
     public static boolean Block_WeatherMachineNoTornadosOrCyclones = false;
-    public static String Dimension_List_Weather = "0,-127";
-    public static String Dimension_List_Clouds = "0,-127";
-    public static String Dimension_List_Storms = "0,-127";
-    public static String Dimension_List_WindEffects = "0,-127";
+    public static String Dimension_List_Weather = "0";
+    public static String Dimension_List_Clouds = "0";
+    public static String Dimension_List_Storms = "0";
+    public static String Dimension_List_WindEffects = "0";
 
     public String getConfigFileName() {
         return "Weather2" + File.separator + "Misc";
@@ -150,11 +113,11 @@ public class ConfigMisc implements IConfigCategory {
     }
 
     public void hookUpdatedValues() {
-        WeatherUtil.doBlockList();
         WeatherUtilConfig.processLists();
         if (Storm_MaxRadius < 1) {
             Storm_MaxRadius = 1;
         }
+        Tornado_DefaultDurationTicks = Math.max(1, Tornado_DefaultDurationTicks);
 
     }
 

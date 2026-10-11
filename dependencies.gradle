@@ -1,9 +1,7 @@
 dependencies {
-    compileOnly(rfg.deobf(project.files("libs/coroutil-1.7.10-1.1.6.jar")))
-    compileOnly(project.files("libs/hbm-api.jar"))
-
+    compileOnly(rfg.deobf("curse.maven:coroutil-237749:2388794"))
+    runtimeOnly(rfg.deobf("curse.maven:coroutil-237749:2388794"))
     testImplementation("junit:junit:4.13.2")
-    testImplementation(rfg.deobf(project.files("libs/coroutil-1.7.10-1.1.6.jar")))
-    testImplementation(project.files("libs/hbm-api.jar"))
+    testImplementation(rfg.deobf("curse.maven:coroutil-237749:2388794"))
 }
 
