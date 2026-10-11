@@ -30,6 +30,7 @@ public class WeatherVisualConditionsTest {
         assertEquals(0, SceneEnhancer.extraParticleCount(1.0F, 0.0D, 0));
         assertEquals(0, SceneEnhancer.extraParticleCount(1.0F, 1.0D, 2));
         assertEquals(8, SceneEnhancer.extraParticleCount(1.0F, 1.0D, 1));
+        assertEquals(0, SceneEnhancer.extraParticleCount(0.1F, 1.0D, 1));
         assertEquals(16, SceneEnhancer.extraParticleCount(1.0F, 2.0D, 0));
         assertEquals(8, SceneEnhancer.extraParticleCount(0.5F, 2.0D, 0));
         assertEquals(4, SceneEnhancer.extraParticleCount(0.5F, 0.5D, 0));
