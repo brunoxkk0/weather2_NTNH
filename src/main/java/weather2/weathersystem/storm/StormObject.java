@@ -36,6 +36,8 @@ import weather2.Weather;
 import weather2.api.event.TornadoEndReason;
 import weather2.api.event.TornadoOrigin;
 import weather2.client.entity.RenderCubeCloud;
+import weather2.climate.ClimateEngine;
+import weather2.climate.ClimateProfile;
 import weather2.config.ConfigMisc;
 import weather2.entity.EntityIceBall;
 import weather2.entity.EntityLightningBolt;
@@ -572,7 +574,7 @@ public class StormObject {
             }
 
             boolean var24 = false;
-            Random rand = new Random();
+            Random rand = world.rand;
             if (!this.isPrecipitating() && rand.nextInt(randomChanceOfWaterBuildFromNothing) == 0) {
                 var24 = true;
             }
@@ -623,19 +625,21 @@ public class StormObject {
             WeatherManagerServer wm = (WeatherManagerServer) ServerTickHandler.lookupDimToWeatherMan
                 .get(Integer.valueOf(world.provider.dimensionId));
             boolean tryFormStorm = false;
-            // NTNH start: dynamic deadly cooldown (Eve 800 ticks vs base 1800)
-            int deadlyTimeBetween = weather2.compat.WeatherNTNHHooks
-                .getDeadlyTimeBetween(ConfigMisc.Player_Storm_Deadly_TimeBetweenInTicks, this);
-            if (ConfigMisc.Server_Storm_Deadly_UseGlobalRate) {
-                if (ConfigMisc.Server_Storm_Deadly_TimeBetweenInTicks != -1 && (wm.lastStormFormed == 0L
-                    || wm.lastStormFormed + (long) deadlyTimeBetween < world.getTotalWorldTime())) {
-                    tryFormStorm = true;
+            boolean globalRate = ConfigMisc.Server_Storm_Deadly_UseGlobalRate;
+            long worldTime = world.getTotalWorldTime();
+            int deadlyTimeBetween = ClimateEngine.getNaturalStormCooldownTicks(world.provider.dimensionId, globalRate);
+            if (wm != null && deadlyTimeBetween > 0) {
+                long lastFormation = globalRate ? wm.lastStormFormed : lastStormDeadlyTime;
+                if (lastFormation > worldTime) {
+                    lastFormation = worldTime;
+                    if (globalRate) {
+                        wm.lastStormFormed = worldTime;
+                    } else {
+                        playerNBT.setLong("lastStormDeadlyTime", worldTime);
+                    }
                 }
-            } else if (ConfigMisc.Player_Storm_Deadly_TimeBetweenInTicks != -1 && (lastStormDeadlyTime == 0L
-                || lastStormDeadlyTime + (long) deadlyTimeBetween < world.getTotalWorldTime())) {
-                    tryFormStorm = true;
-                }
-            // NTNH end
+                tryFormStorm = ClimateEngine.remainingCooldownTicks(worldTime, lastFormation, deadlyTimeBetween) == 0L;
+            }
 
             int oddsTo1OfIntensityProgressionBase;
             if ((ConfigMisc.overcastMode && this.manager.getWorld()
@@ -645,13 +649,15 @@ public class StormObject {
                     .contains(Integer.valueOf(this.manager.getWorld().provider.dimensionId))
                 && tryFormStorm) {
                 int levelStormIntensityRate = ConfigMisc.Storm_Deadly_CollideDistance;
-                int minIntensityToProgress = ConfigMisc.Player_Storm_Deadly_OddsTo1;
+                int minIntensityToProgress = globalRate ? ConfigMisc.Server_Storm_Deadly_OddsTo1
+                    : ConfigMisc.Player_Storm_Deadly_OddsTo1;
                 EntityPlayer var27;
                 // NTNH start: dynamic planetary spawn odds (Eve accelerated / Duna / Tekto)
-                int oceanOdds = weather2.compat.WeatherNTNHHooks
-                    .getOceanStormOdds(ConfigMisc.Storm_OddsTo1OfOceanBasedStorm, this);
-                int landOdds = weather2.compat.WeatherNTNHHooks
-                    .getLandStormOdds(ConfigMisc.Storm_OddsTo1OfLandBasedStorm, this);
+                ClimateProfile profile = ClimateEngine.getProfile(this);
+                int oceanOdds = profile.oceanSpawnOdds > 0 ? weather2.compat.WeatherNTNHHooks
+                    .getOceanStormOdds(ConfigMisc.Storm_OddsTo1OfOceanBasedStorm, this) : 0;
+                int landOdds = profile.landSpawnOdds > 0 ? weather2.compat.WeatherNTNHHooks
+                    .getLandStormOdds(ConfigMisc.Storm_OddsTo1OfLandBasedStorm, this) : 0;
                 if (isInOcean && oceanOdds > 0 && rand.nextInt(oceanOdds) == 0) {
                     var27 = world.getPlayerEntityByName(this.userSpawnedFor);
                     if (var27 != null) {
@@ -660,10 +666,8 @@ public class StormObject {
                         this.initRealStorm((EntityPlayer) null, (StormObject) null);
                     }
 
-                    if (ConfigMisc.Server_Storm_Deadly_UseGlobalRate) {
-                        wm.lastStormFormed = world.getTotalWorldTime();
-                    } else {
-                        playerNBT.setLong("lastStormDeadlyTime", world.getTotalWorldTime());
+                    if (this.isRealStorm()) {
+                        this.recordNaturalStormFormation(worldTime);
                     }
                 } else if (!isInOcean && landOdds > 0 && rand.nextInt(landOdds) == 0) {
                     var27 = world.getPlayerEntityByName(this.userSpawnedFor);
@@ -673,14 +677,12 @@ public class StormObject {
                         this.initRealStorm((EntityPlayer) null, (StormObject) null);
                     }
 
-                    if (ConfigMisc.Server_Storm_Deadly_UseGlobalRate) {
-                        wm.lastStormFormed = world.getTotalWorldTime();
-                    } else {
-                        playerNBT.setLong("lastStormDeadlyTime", world.getTotalWorldTime());
+                    if (this.isRealStorm()) {
+                        this.recordNaturalStormFormation(worldTime);
                     }
                 }
                 // NTNH end
-                else if (rand.nextInt(minIntensityToProgress) == 0) {
+                else if (minIntensityToProgress > 0 && rand.nextInt(minIntensityToProgress) == 0) {
                     for (oddsTo1OfIntensityProgressionBase = 0; oddsTo1OfIntensityProgressionBase
                         < this.manager.getStormObjects()
                             .size(); ++oddsTo1OfIntensityProgressionBase) {
@@ -702,12 +704,14 @@ public class StormObject {
                         }
 
                         if (startStorm) {
-                            playerNBT.setLong("lastStormDeadlyTime", world.getTotalWorldTime());
                             EntityPlayer entP = world.getPlayerEntityByName(this.userSpawnedFor);
                             if (entP != null) {
                                 this.initRealStorm(entP, oddsTo1OfIntensityProgression);
                             } else {
                                 this.initRealStorm((EntityPlayer) null, oddsTo1OfIntensityProgression);
+                            }
+                            if (this.isRealStorm()) {
+                                this.recordNaturalStormFormation(worldTime);
                             }
                             break;
                         }
@@ -900,6 +904,19 @@ public class StormObject {
         weather2.compat.WeatherNTNHHooks.onInitRealStorm(this);
         // NTNH end
 
+    }
+
+    public void recordNaturalStormFormation(long now) {
+        if (this.manager == null) {
+            return;
+        }
+        long worldTime = Math.max(0L, now);
+        if (ConfigMisc.Server_Storm_Deadly_UseGlobalRate) {
+            this.manager.lastStormFormed = worldTime;
+        } else {
+            PlayerData.getPlayerNBT(this.userSpawnedFor)
+                .setLong("lastStormDeadlyTime", worldTime);
+        }
     }
 
     public void aimStormAtClosestOrProvidedPlayer(EntityPlayer entP) {

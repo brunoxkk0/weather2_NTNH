@@ -43,6 +43,8 @@ public final class RecordingWorld extends WorldServer {
     public Block defaultBlock = Blocks.air;
     public Block groundBlock;
     public int groundHeight = Integer.MIN_VALUE;
+    public long worldTime = 1L;
+    public BiomeGenBase biome = BiomeGenBase.plains;
     public TileEntity tileEntity;
     private boolean chunksLoaded = true;
 
@@ -132,12 +134,12 @@ public final class RecordingWorld extends WorldServer {
 
     @Override
     public BiomeGenBase getBiomeGenForCoords(int x, int z) {
-        return BiomeGenBase.plains;
+        return this.biome;
     }
 
     @Override
     public long getTotalWorldTime() {
-        return 1L;
+        return this.worldTime;
     }
 
     @Override

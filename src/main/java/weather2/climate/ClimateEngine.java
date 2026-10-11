@@ -4,6 +4,7 @@ import java.lang.reflect.Field;
 import java.util.Locale;
 
 import weather2.config.ConfigMisc;
+import weather2.util.WeatherUtilConfig;
 import weather2.weathersystem.storm.StormObject;
 
 /**
@@ -113,6 +114,31 @@ public class ClimateEngine {
             return p.deadlyCooldown;
         }
         return defaultTicks;
+    }
+
+    public static int getNaturalStormCooldownTicks(int dim, boolean globalRate) {
+        int configuredTicks = globalRate ? ConfigMisc.Server_Storm_Deadly_TimeBetweenInTicks
+            : ConfigMisc.Player_Storm_Deadly_TimeBetweenInTicks;
+        if (configuredTicks == -1 || !WeatherUtilConfig.listDimensionsStorms.contains(Integer.valueOf(dim))) {
+            return -1;
+        }
+        ClimateProfile profile = getProfile(dim);
+        if (!profile.weatherEnabled || profile.maxStage < StormObject.STATE_THUNDER || profile.deadlyCooldown <= 0
+            || profile.landSpawnOdds <= 0 && profile.oceanSpawnOdds <= 0) {
+            return -1;
+        }
+        return profile.deadlyCooldown;
+    }
+
+    public static long remainingCooldownTicks(long now, long last, int cooldown) {
+        if (cooldown <= 0) {
+            return -1L;
+        }
+        if (now < 0L || last > now) {
+            return cooldown;
+        }
+        long elapsed = last <= 0L ? now : now - last;
+        return Math.max(0L, (long) cooldown - elapsed);
     }
 
     public static int getLandStormOdds(int defaultOdds, StormObject so) {
