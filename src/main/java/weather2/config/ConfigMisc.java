@@ -94,6 +94,12 @@ public class ConfigMisc implements IConfigCategory {
     public static double volWindScale = 0.05D;
     public static double volWaterfallScale = 0.5D;
     public static double volWindTreesScale = 0.5D;
+    @ConfigComment({ "Volume scale for tornado sounds, from 0 (muted) to 1 (full volume)" })
+    public static double volTornadoScale = 1.0D;
+    @ConfigComment({ "Volume scale for siren sounds, from 0 (muted) to 1 (full volume)" })
+    public static double volSirenScale = 1.0D;
+    @ConfigComment({ "Volume scale for thunder and lightning sounds, from 0 (muted) to 1 (full volume)" })
+    public static double volThunderScale = 1.0D;
     public static double sirenActivateDistance = 256.0D;
     public static double sensorActivateDistance = 256.0D;
     // NTNH: [FIX] (registry): Removed legacy 1.6.4 Block_*ID fields; Forge 1.7.10 auto-assigns block IDs via
@@ -114,11 +120,21 @@ public class ConfigMisc implements IConfigCategory {
 
     public void hookUpdatedValues() {
         WeatherUtilConfig.processLists();
+        volTornadoScale = normalizeAudioScale(volTornadoScale);
+        volSirenScale = normalizeAudioScale(volSirenScale);
+        volThunderScale = normalizeAudioScale(volThunderScale);
         if (Storm_MaxRadius < 1) {
             Storm_MaxRadius = 1;
         }
         Tornado_DefaultDurationTicks = Math.max(1, Tornado_DefaultDurationTicks);
 
+    }
+
+    private static double normalizeAudioScale(double scale) {
+        if (Double.isNaN(scale) || Double.isInfinite(scale)) {
+            return 1.0D;
+        }
+        return Math.max(0.0D, Math.min(1.0D, scale));
     }
 
 }

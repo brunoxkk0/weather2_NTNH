@@ -31,7 +31,7 @@ public class TileEntityTSiren extends TileEntity {
     public void tickClient() {
         Minecraft mc = FMLClientHandler.instance()
             .getClient();
-        if (this.lastPlayTime < System.currentTimeMillis()) {
+        if (ConfigMisc.volSirenScale > 0.0D && this.lastPlayTime < System.currentTimeMillis()) {
             StormObject so = ClientTickHandler.weatherManager.getClosestStorm(
                 Vec3.createVectorHelper((double) this.xCoord, (double) this.yCoord, (double) this.zCoord),
                 ConfigMisc.sirenActivateDistance,
@@ -41,7 +41,7 @@ public class TileEntityTSiren extends TileEntity {
                 WeatherUtilSound.playNonMovingSound(
                     Vec3.createVectorHelper((double) this.xCoord, (double) this.yCoord, (double) this.zCoord),
                     Weather.modID + ":streaming.siren",
-                    1.0F,
+                    (float) ConfigMisc.volSirenScale,
                     1.0F,
                     120.0F);
             }

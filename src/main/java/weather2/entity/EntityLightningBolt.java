@@ -13,6 +13,7 @@ import net.minecraft.world.World;
 import cpw.mods.fml.client.FMLClientHandler;
 import cpw.mods.fml.relauncher.Side;
 import cpw.mods.fml.relauncher.SideOnly;
+import weather2.config.ConfigMisc;
 
 public class EntityLightningBolt extends EntityWeatherEffect {
 
@@ -32,14 +33,14 @@ public class EntityLightningBolt extends EntityWeatherEffect {
 
     public void onUpdate() {
         super.onUpdate();
-        if (this.worldObj.isRemote && this.lightningState == 2) {
+        if (this.worldObj.isRemote && this.lightningState == 2 && ConfigMisc.volThunderScale > 0.0D) {
             // NTNH start: audio comfort calibration (~70%)
             this.worldObj.playSound(
                 this.posX,
                 this.posY,
                 this.posZ,
                 "ambient.weather.thunder",
-                45.0F,
+                (float) (45.0D * ConfigMisc.volThunderScale),
                 0.8F + this.rand.nextFloat() * 0.2F,
                 false);
             this.worldObj.playSound(
@@ -47,7 +48,7 @@ public class EntityLightningBolt extends EntityWeatherEffect {
                 this.posY,
                 this.posZ,
                 "random.explode",
-                1.4F,
+                (float) (1.4D * ConfigMisc.volThunderScale),
                 0.5F + this.rand.nextFloat() * 0.2F,
                 false);
             // NTNH end

@@ -14,6 +14,7 @@ import cpw.mods.fml.client.FMLClientHandler;
 import cpw.mods.fml.relauncher.Side;
 import cpw.mods.fml.relauncher.SideOnly;
 import weather2.Weather;
+import weather2.config.ConfigMisc;
 import weather2.util.WeatherUtilEntity;
 import weather2.util.WeatherUtilSound;
 
@@ -161,12 +162,16 @@ public class TornadoHelper {
     }
 
     public boolean tryPlaySound(String[] sound, int arrIndex, Entity source, float vol, float parCutOffRange) {
+        float volumeScale = (float) ConfigMisc.volTornadoScale;
+        if (volumeScale <= 0.0F) {
+            return false;
+        }
         Random rand = new Random();
         if (WeatherUtilSound.soundTimer[arrIndex] <= System.currentTimeMillis()) {
             WeatherUtilSound.playMovingSound(
                 this.storm,
                 Weather.modID + ":streaming." + sound[WeatherUtilSound.snd_rand[arrIndex]],
-                vol,
+                vol * volumeScale,
                 1.0F,
                 parCutOffRange);
             int length = ((Integer) WeatherUtilSound.soundToLength.get(sound[WeatherUtilSound.snd_rand[arrIndex]]))
