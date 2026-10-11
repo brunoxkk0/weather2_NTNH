@@ -21,7 +21,7 @@ import weather2.config.ConfigMisc;
 import weather2.player.PlayerData;
 import weather2.util.WeatherUtilConfig;
 
-@Mod(modid = "weather2", name = "weather2", version = "v2.3.19")
+@Mod(modid = "weather2", name = "weather2", version = GradleTokens.VERSION)
 public class Weather {
 
     @Instance("weather2")

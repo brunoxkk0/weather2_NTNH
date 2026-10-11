@@ -123,7 +123,8 @@ public class ClimateEngine {
             return -1;
         }
         ClimateProfile profile = getProfile(dim);
-        if (!profile.weatherEnabled || profile.maxStage < StormObject.STATE_THUNDER || profile.deadlyCooldown <= 0
+        if (!profile.weatherEnabled || profile.maxStage < StormObject.STATE_THUNDER
+            || profile.deadlyCooldown <= 0
             || profile.landSpawnOdds <= 0 && profile.oceanSpawnOdds <= 0) {
             return -1;
         }

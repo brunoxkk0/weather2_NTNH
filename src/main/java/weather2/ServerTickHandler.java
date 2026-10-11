@@ -43,6 +43,7 @@ public class ServerTickHandler {
     private static final Map<EntityPlayerMP, SyncRequestState> lastWeatherSync = new ConcurrentHashMap<EntityPlayerMP, SyncRequestState>();
 
     private static final class SyncRequestState {
+
         private final int dimension;
         private final long tick;
 
@@ -276,7 +277,8 @@ public class ServerTickHandler {
             }
 
             SyncRequestState previous = lastWeatherSync.get(player);
-            if (previous != null && !canAcceptWeatherSync(syncRequestTick, dimension, previous.dimension, previous.tick)) {
+            if (previous != null
+                && !canAcceptWeatherSync(syncRequestTick, dimension, previous.dimension, previous.tick)) {
                 pendingWeatherSync.remove(player);
                 continue;
             }

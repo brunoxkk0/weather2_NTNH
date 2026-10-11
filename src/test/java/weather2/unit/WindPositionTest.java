@@ -65,10 +65,14 @@ public class WindPositionTest {
         assertEquals(0.0F, localSpeed(this.manager.getWorld(), 256.0D, 0.0D, WindReader.WindType.EVENT), 0.0F);
 
         storm.posGround = Vec3.createVectorHelper(10.0D, 64.0D, 0.0D);
-        assertEquals(-90.0F, WindReader.getLocalWindAngle(this.manager.getWorld(), POS, WindReader.WindType.EVENT),
+        assertEquals(
+            -90.0F,
+            WindReader.getLocalWindAngle(this.manager.getWorld(), POS, WindReader.WindType.EVENT),
             0.001F);
         storm.posGround = Vec3.createVectorHelper(0.0D, 64.0D, -10.0D);
-        assertEquals(-180.0F, WindReader.getLocalWindAngle(this.manager.getWorld(), POS, WindReader.WindType.EVENT),
+        assertEquals(
+            -180.0F,
+            WindReader.getLocalWindAngle(this.manager.getWorld(), POS, WindReader.WindType.EVENT),
             0.001F);
     }
 
@@ -98,10 +102,8 @@ public class WindPositionTest {
         this.manager.windMan.windSpeedGlobal = 0.4F;
         assertEquals(
             0.5F,
-            WindReader.getLocalWindSpeed(
-                world,
-                Vec3.createVectorHelper(0.5D, 96.0D, 0.5D),
-                WindReader.WindType.DOMINANT),
+            WindReader
+                .getLocalWindSpeed(world, Vec3.createVectorHelper(0.5D, 96.0D, 0.5D), WindReader.WindType.DOMINANT),
             0.001F);
         assertEquals(5, world.chunkExistsQueries);
         assertEquals(5, world.heightValueQueries);
@@ -118,16 +120,16 @@ public class WindPositionTest {
     public void tiesUseLowerStormIdAndRemoteInstrumentUsesItsOwnPosition() {
         addStorm(this.manager, 30L, 10.0D, 0.0D);
         addStorm(this.manager, 10L, -10.0D, 0.0D);
-        assertEquals(90.0F, WindReader.getLocalWindAngle(this.manager.getWorld(), POS, WindReader.WindType.EVENT),
+        assertEquals(
+            90.0F,
+            WindReader.getLocalWindAngle(this.manager.getWorld(), POS, WindReader.WindType.EVENT),
             0.001F);
 
-        this.manager.getStormObjects().clear();
+        this.manager.getStormObjects()
+            .clear();
         this.manager.windMan.windSpeedGlobal = 0.35F;
         addStorm(this.manager, 2L, 0.0D, 0.0D);
-        assertEquals(
-            0.35F,
-            localSpeed(this.manager.getWorld(), 300.0D, 0.0D, WindReader.WindType.DOMINANT),
-            0.001F);
+        assertEquals(0.35F, localSpeed(this.manager.getWorld(), 300.0D, 0.0D, WindReader.WindType.DOMINANT), 0.001F);
     }
 
     @Test
@@ -138,10 +140,8 @@ public class WindPositionTest {
 
         assertEquals(
             0.35F,
-            WindReader.getLocalWindSpeed(
-                world,
-                Vec3.createVectorHelper(15.5D, 128.0D, 0.5D),
-                WindReader.WindType.DOMINANT),
+            WindReader
+                .getLocalWindSpeed(world, Vec3.createVectorHelper(15.5D, 128.0D, 0.5D), WindReader.WindType.DOMINANT),
             0.001F);
         assertEquals(0, world.heightValueQueries);
         assertEquals(0, world.heightQueriesInUnloadedChunks);
@@ -180,18 +180,14 @@ public class WindPositionTest {
             this.manager.getWorld(),
             Vec3.createVectorHelper(0.0D, 64.0D, 0.0D),
             WindReader.WindType.EVENT);
-        float serverSpeed = WindReader.getLocalWindSpeed(
-            serverWorld,
-            Vec3.createVectorHelper(0.0D, 64.0D, 0.0D),
-            WindReader.WindType.EVENT);
+        float serverSpeed = WindReader
+            .getLocalWindSpeed(serverWorld, Vec3.createVectorHelper(0.0D, 64.0D, 0.0D), WindReader.WindType.EVENT);
         float clientAngle = WindReader.getLocalWindAngle(
             this.manager.getWorld(),
             Vec3.createVectorHelper(0.0D, 64.0D, 0.0D),
             WindReader.WindType.EVENT);
-        float serverAngle = WindReader.getLocalWindAngle(
-            serverWorld,
-            Vec3.createVectorHelper(0.0D, 64.0D, 0.0D),
-            WindReader.WindType.EVENT);
+        float serverAngle = WindReader
+            .getLocalWindAngle(serverWorld, Vec3.createVectorHelper(0.0D, 64.0D, 0.0D), WindReader.WindType.EVENT);
 
         assertEquals(clientSpeed, serverSpeed, 0.0F);
         assertEquals(clientAngle, serverAngle, 0.0F);

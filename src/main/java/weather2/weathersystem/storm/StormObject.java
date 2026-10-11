@@ -654,10 +654,13 @@ public class StormObject {
                 EntityPlayer var27;
                 // NTNH start: dynamic planetary spawn odds (Eve accelerated / Duna / Tekto)
                 ClimateProfile profile = ClimateEngine.getProfile(this);
-                int oceanOdds = profile.oceanSpawnOdds > 0 ? weather2.compat.WeatherNTNHHooks
-                    .getOceanStormOdds(ConfigMisc.Storm_OddsTo1OfOceanBasedStorm, this) : 0;
-                int landOdds = profile.landSpawnOdds > 0 ? weather2.compat.WeatherNTNHHooks
-                    .getLandStormOdds(ConfigMisc.Storm_OddsTo1OfLandBasedStorm, this) : 0;
+                int oceanOdds = profile.oceanSpawnOdds > 0
+                    ? weather2.compat.WeatherNTNHHooks
+                        .getOceanStormOdds(ConfigMisc.Storm_OddsTo1OfOceanBasedStorm, this)
+                    : 0;
+                int landOdds = profile.landSpawnOdds > 0
+                    ? weather2.compat.WeatherNTNHHooks.getLandStormOdds(ConfigMisc.Storm_OddsTo1OfLandBasedStorm, this)
+                    : 0;
                 if (isInOcean && oceanOdds > 0 && rand.nextInt(oceanOdds) == 0) {
                     var27 = world.getPlayerEntityByName(this.userSpawnedFor);
                     if (var27 != null) {

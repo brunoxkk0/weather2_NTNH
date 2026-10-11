@@ -26,8 +26,9 @@ public class WeatherManagerClient extends WeatherManagerBase {
     }
 
     public World getWorld() {
-        return this.clientWorld != null ? this.clientWorld : FMLClientHandler.instance()
-            .getClient().theWorld;
+        return this.clientWorld != null ? this.clientWorld
+            : FMLClientHandler.instance()
+                .getClient().theWorld;
     }
 
     public void tick() {

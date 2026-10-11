@@ -62,8 +62,7 @@ public class WeatherExposureTest {
         border.setHeightValue(15, -5, 100);
         border.setHeightValue(15, 5, 100);
         border.setChunkLoadedAt(1, 0, false);
-        assertFalse(
-            WeatherUtilEntity.isPosWindExposed(border, Vec3.createVectorHelper(15.5D, 64.0D, 0.5D)));
+        assertFalse(WeatherUtilEntity.isPosWindExposed(border, Vec3.createVectorHelper(15.5D, 64.0D, 0.5D)));
         assertEquals(0, border.heightQueriesInUnloadedChunks);
         assertEquals(0, border.rayTraceQueries);
     }

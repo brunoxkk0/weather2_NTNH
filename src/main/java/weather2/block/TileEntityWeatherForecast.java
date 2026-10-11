@@ -57,34 +57,33 @@ public class TileEntityWeatherForecast extends TileEntity {
 
         long worldTime = this.worldObj.getTotalWorldTime();
         if (!this.worldObj.isRemote) {
-            long positionOffset = Math.floorMod((long) this.xCoord + (long) this.zCoord,
-                (long) FORECAST_INTERVAL_TICKS);
+            long positionOffset = Math
+                .floorMod((long) this.xCoord + (long) this.zCoord, (long) FORECAST_INTERVAL_TICKS);
             if (Math.floorMod(worldTime, (long) FORECAST_INTERVAL_TICKS) == positionOffset
                 && this.updateServerForecast()) {
                 this.worldObj.markBlockForUpdate(this.xCoord, this.yCoord, this.zCoord);
             }
-        } else if (worldTime % FORECAST_INTERVAL_TICKS == 0L
-            && ClientTickHandler.weatherManager != null
+        } else if (worldTime % FORECAST_INTERVAL_TICKS == 0L && ClientTickHandler.weatherManager != null
             && ClientTickHandler.weatherManager.getWorld() == this.worldObj) {
-            Vec3 pos = Vec3.createVectorHelper((double) this.xCoord, (double) this.yCoord, (double) this.zCoord);
-            this.cachedCloudWindAngle = WindReader.getLocalWindAngle(this.worldObj, pos, WindReader.WindType.CLOUD);
-            this.cachedWindAngle = WindReader.getLocalWindAngle(this.worldObj, pos, WindReader.WindType.DOMINANT);
-            this.cachedWindSpeed = WindReader.getLocalWindSpeed(this.worldObj, pos, WindReader.WindType.DOMINANT);
-            this.lastTickStormObject = ClientTickHandler.weatherManager.getClosestStorm(
-                Vec3.createVectorHelper(
-                    (double) this.xCoord,
-                    (double) ((Integer) StormObject.layers.get(0)).intValue(),
-                    (double) this.zCoord),
-                1024.0D,
-                StormObject.STATE_THUNDER,
-                true);
-            this.storms = ClientTickHandler.weatherManager.getStormsAround(
-                Vec3.createVectorHelper(
-                    (double) this.xCoord,
-                    (double) ((Integer) StormObject.layers.get(0)).intValue(),
-                    (double) this.zCoord),
-                1024.0D);
-        }
+                Vec3 pos = Vec3.createVectorHelper((double) this.xCoord, (double) this.yCoord, (double) this.zCoord);
+                this.cachedCloudWindAngle = WindReader.getLocalWindAngle(this.worldObj, pos, WindReader.WindType.CLOUD);
+                this.cachedWindAngle = WindReader.getLocalWindAngle(this.worldObj, pos, WindReader.WindType.DOMINANT);
+                this.cachedWindSpeed = WindReader.getLocalWindSpeed(this.worldObj, pos, WindReader.WindType.DOMINANT);
+                this.lastTickStormObject = ClientTickHandler.weatherManager.getClosestStorm(
+                    Vec3.createVectorHelper(
+                        (double) this.xCoord,
+                        (double) ((Integer) StormObject.layers.get(0)).intValue(),
+                        (double) this.zCoord),
+                    1024.0D,
+                    StormObject.STATE_THUNDER,
+                    true);
+                this.storms = ClientTickHandler.weatherManager.getStormsAround(
+                    Vec3.createVectorHelper(
+                        (double) this.xCoord,
+                        (double) ((Integer) StormObject.layers.get(0)).intValue(),
+                        (double) this.zCoord),
+                    1024.0D);
+            }
     }
 
     private boolean updateServerForecast() {
@@ -117,15 +116,20 @@ public class TileEntityWeatherForecast extends TileEntity {
         long remaining = enabled && globalMode
             ? ClimateEngine.remainingCooldownTicks(now, manager.lastStormFormed, cooldown)
             : -1L;
-        int progressionOdds = Math.max(-1, globalMode ? ConfigMisc.Server_Storm_Deadly_OddsTo1
-            : ConfigMisc.Player_Storm_Deadly_OddsTo1);
-        boolean collisionNearby = enabled && progressionOdds > 0 && manager != null
+        int progressionOdds = Math
+            .max(-1, globalMode ? ConfigMisc.Server_Storm_Deadly_OddsTo1 : ConfigMisc.Player_Storm_Deadly_OddsTo1);
+        boolean collisionNearby = enabled && progressionOdds > 0
+            && manager != null
             && hasNearbyThermalCollision(manager.getStormObjects(), this.xCoord, this.zCoord);
         boolean changed = !this.hasForecastSnapshot || modeChanged
-            || this.forecastEnabled != enabled || this.forecastMaxStage != profile.maxStage
-            || this.forecastLandOdds != profile.landSpawnOdds || this.forecastOceanOdds != profile.oceanSpawnOdds
-            || this.forecastProgressionOdds != progressionOdds || this.forecastRemainingTicks != remaining
-            || this.forecastCollisionNearby != collisionNearby || this.forecastSampleWorldTick != now;
+            || this.forecastEnabled != enabled
+            || this.forecastMaxStage != profile.maxStage
+            || this.forecastLandOdds != profile.landSpawnOdds
+            || this.forecastOceanOdds != profile.oceanSpawnOdds
+            || this.forecastProgressionOdds != progressionOdds
+            || this.forecastRemainingTicks != remaining
+            || this.forecastCollisionNearby != collisionNearby
+            || this.forecastSampleWorldTick != now;
 
         this.forecastMode = nextMode;
         this.forecastModeKnown = true;
@@ -145,18 +149,24 @@ public class TileEntityWeatherForecast extends TileEntity {
         int distance = ConfigMisc.Storm_Deadly_CollideDistance;
         if (distance <= 0) return false;
         double maxDistance = (double) distance;
-        Vec3 forecastPos = Vec3.createVectorHelper((double) x + 0.5D,
-            (double) StormObject.static_YPos_layer0, (double) z + 0.5D);
+        Vec3 forecastPos = Vec3
+            .createVectorHelper((double) x + 0.5D, (double) StormObject.static_YPos_layer0, (double) z + 0.5D);
         for (int i = 0; i < stormList.size(); ++i) {
             StormObject storm = (StormObject) stormList.get(i);
-            if (storm == null || storm.isDead || storm.tornadoEndPending || storm.pos == null
-                || storm.levelTemperature == 0.0F || storm.pos.distanceTo(forecastPos) >= maxDistance) {
+            if (storm == null || storm.isDead
+                || storm.tornadoEndPending
+                || storm.pos == null
+                || storm.levelTemperature == 0.0F
+                || storm.pos.distanceTo(forecastPos) >= maxDistance) {
                 continue;
             }
             for (int j = 0; j < stormList.size(); ++j) {
                 StormObject candidate = (StormObject) stormList.get(j);
-                if (candidate != null && candidate != storm && !candidate.isDead && !candidate.tornadoEndPending
-                    && candidate.levelCurIntensityStage <= 0 && candidate.pos != null
+                if (candidate != null && candidate != storm
+                    && !candidate.isDead
+                    && !candidate.tornadoEndPending
+                    && candidate.levelCurIntensityStage <= 0
+                    && candidate.pos != null
                     && candidate.pos.distanceTo(storm.pos) < maxDistance
                     && (storm.levelTemperature < 0.0F && candidate.levelTemperature > 0.0F
                         || storm.levelTemperature > 0.0F && candidate.levelTemperature < 0.0F)) {
@@ -173,8 +183,7 @@ public class TileEntityWeatherForecast extends TileEntity {
     }
 
     public boolean shouldShowForecastWaiting(long worldTime) {
-        return this.forecastModeKnown && this.forecastMode == MODE_GLOBAL
-            && !this.hasFreshForecastSnapshot(worldTime);
+        return this.forecastModeKnown && this.forecastMode == MODE_GLOBAL && !this.hasFreshForecastSnapshot(worldTime);
     }
 
     public NBTTagCompound forecastSyncData() {
@@ -182,9 +191,7 @@ public class TileEntityWeatherForecast extends TileEntity {
         data.setBoolean("available", this.hasForecastSnapshot);
         if (!this.hasForecastSnapshot) {
             if (this.worldObj != null && !this.worldObj.isRemote) {
-                data.setByte(
-                    "mode",
-                    ConfigMisc.Server_Storm_Deadly_UseGlobalRate ? MODE_GLOBAL : MODE_PLAYER);
+                data.setByte("mode", ConfigMisc.Server_Storm_Deadly_UseGlobalRate ? MODE_GLOBAL : MODE_PLAYER);
             } else if (this.forecastModeKnown) {
                 data.setByte("mode", this.forecastMode);
             }
@@ -219,10 +226,14 @@ public class TileEntityWeatherForecast extends TileEntity {
             }
             return;
         }
-        if (!data.hasKey("mode", 1) || !data.hasKey("enabled", 1) || !data.hasKey("maxStage", 3)
-            || !data.hasKey("landOdds", 3) || !data.hasKey("oceanOdds", 3)
-            || !data.hasKey("progressionOdds", 3) || !data.hasKey("remainingTicks", 4)
-            || !data.hasKey("collisionNearby", 1) || !data.hasKey("sampleWorldTick", 4)) {
+        if (!data.hasKey("mode", 1) || !data.hasKey("enabled", 1)
+            || !data.hasKey("maxStage", 3)
+            || !data.hasKey("landOdds", 3)
+            || !data.hasKey("oceanOdds", 3)
+            || !data.hasKey("progressionOdds", 3)
+            || !data.hasKey("remainingTicks", 4)
+            || !data.hasKey("collisionNearby", 1)
+            || !data.hasKey("sampleWorldTick", 4)) {
             return;
         }
         byte mode = data.getByte("mode");
@@ -234,9 +245,18 @@ public class TileEntityWeatherForecast extends TileEntity {
         int progressionOdds = data.getInteger("progressionOdds");
         long remaining = data.getLong("remainingTicks");
         long sampleTick = data.getLong("sampleWorldTick");
-        if (!isValidMode(mode) || enabled < 0 || enabled > 1 || collisionNearby < 0 || collisionNearby > 1
-            || maxStage < 0 || maxStage > 9 || landOdds < 0 || oceanOdds < 0
-            || progressionOdds < -1 || remaining < -1L || remaining > Integer.MAX_VALUE || sampleTick < 0L) {
+        if (!isValidMode(mode) || enabled < 0
+            || enabled > 1
+            || collisionNearby < 0
+            || collisionNearby > 1
+            || maxStage < 0
+            || maxStage > 9
+            || landOdds < 0
+            || oceanOdds < 0
+            || progressionOdds < -1
+            || remaining < -1L
+            || remaining > Integer.MAX_VALUE
+            || sampleTick < 0L) {
             return;
         }
 

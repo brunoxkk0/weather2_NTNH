@@ -34,9 +34,11 @@ public class TileEntityWindVane extends TileEntity {
                         (double) ((float) this.zCoord + 0.5F)));
                 Vec3 pos = Vec3.createVectorHelper((double) this.xCoord, (double) this.yCoord, (double) this.zCoord);
                 this.cachedWindAngle = this.isOutsideCached
-                    ? WindReader.getLocalWindAngle(this.worldObj, pos, WindReader.WindType.DOMINANT) : 0.0F;
+                    ? WindReader.getLocalWindAngle(this.worldObj, pos, WindReader.WindType.DOMINANT)
+                    : 0.0F;
                 this.cachedWindSpeed = this.isOutsideCached
-                    ? WindReader.getLocalWindSpeed(this.worldObj, pos, WindReader.WindType.DOMINANT) : 0.0F;
+                    ? WindReader.getLocalWindSpeed(this.worldObj, pos, WindReader.WindType.DOMINANT)
+                    : 0.0F;
             }
 
             if (this.isOutsideCached) {

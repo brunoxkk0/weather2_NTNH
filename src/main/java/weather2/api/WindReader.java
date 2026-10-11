@@ -94,8 +94,11 @@ public class WindReader {
     }
 
     private static boolean isFinite(Vec3 pos) {
-        return !Double.isNaN(pos.xCoord) && !Double.isInfinite(pos.xCoord) && !Double.isNaN(pos.yCoord)
-            && !Double.isInfinite(pos.yCoord) && !Double.isNaN(pos.zCoord) && !Double.isInfinite(pos.zCoord);
+        return !Double.isNaN(pos.xCoord) && !Double.isInfinite(pos.xCoord)
+            && !Double.isNaN(pos.yCoord)
+            && !Double.isInfinite(pos.yCoord)
+            && !Double.isNaN(pos.zCoord)
+            && !Double.isInfinite(pos.zCoord);
     }
 
     @SideOnly(Side.CLIENT)

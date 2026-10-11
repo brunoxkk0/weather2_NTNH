@@ -181,14 +181,14 @@ public class ForecastConditionsTest {
         return storm;
     }
 
-    private static void registerProfile(boolean enabled, int maxStage, int cooldown, int landOdds,
-        int oceanOdds) {
-        ClimateProfileRegistry.register(ClimateProfile.builder(0, "forecast_test")
-            .weatherEnabled(enabled)
-            .exactStage(maxStage)
-            .deadlyCooldown(cooldown)
-            .spawnOdds(landOdds, oceanOdds)
-            .build());
+    private static void registerProfile(boolean enabled, int maxStage, int cooldown, int landOdds, int oceanOdds) {
+        ClimateProfileRegistry.register(
+            ClimateProfile.builder(0, "forecast_test")
+                .weatherEnabled(enabled)
+                .exactStage(maxStage)
+                .deadlyCooldown(cooldown)
+                .spawnOdds(landOdds, oceanOdds)
+                .build());
     }
 
     private static class TestManager extends WeatherManagerServer {

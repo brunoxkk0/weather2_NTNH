@@ -67,7 +67,8 @@ public class ClientTickHandler {
             }
         }
 
-        if (world != null && weatherManager != null && sceneEnhancer != null
+        if (world != null && weatherManager != null
+            && sceneEnhancer != null
             && WeatherUtilConfig.listDimensionsWindEffects.contains(Integer.valueOf(world.provider.dimensionId))) {
             sceneEnhancer.tickClient();
         }
@@ -168,6 +169,7 @@ public class ClientTickHandler {
             return;
         }
         mc.func_152344_a(new Runnable() {
+
             @Override
             public void run() {
                 if (isCurrentWeatherData(handler, mc.getNetHandler(), packetWorld, mc.theWorld)) {
@@ -180,12 +182,14 @@ public class ClientTickHandler {
 
     static boolean isCurrentWeatherData(Object packetHandler, Object currentHandler, World packetWorld,
         World currentWorld) {
-        return packetHandler != null && packetHandler == currentHandler && packetWorld != null
+        return packetHandler != null && packetHandler == currentHandler
+            && packetWorld != null
             && packetWorld == currentWorld;
     }
 
     static void applyWeatherData(World world, NBTTagCompound data) {
-        if (world == null || world != lastWorld || weatherManager == null
+        if (world == null || world != lastWorld
+            || weatherManager == null
             || weatherManager.dim != world.provider.dimensionId
             || data.hasKey("dimensionId") && data.getInteger("dimensionId") != world.provider.dimensionId) {
             return;

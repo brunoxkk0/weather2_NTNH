@@ -13,10 +13,10 @@ import weather2.climate.ClimateEngine;
 import weather2.climate.ClimateProfile;
 import weather2.climate.ClimateProfileRegistry;
 import weather2.config.ConfigMisc;
-import weather2.player.PlayerData;
-import weather2.util.WeatherUtilConfig;
 import weather2.harness.MockStormFactory;
 import weather2.harness.TestEnvironment;
+import weather2.player.PlayerData;
+import weather2.util.WeatherUtilConfig;
 import weather2.weathersystem.storm.StormObject;
 
 public class StormCooldownTest {
@@ -99,21 +99,28 @@ public class StormCooldownTest {
         storm.recordNaturalStormFormation(123L);
         assertEquals(123L, storm.manager.lastStormFormed);
         assertEquals(300L, ClimateEngine.remainingCooldownTicks(123L, storm.manager.lastStormFormed, 300));
-        assertEquals(0L, PlayerData.getPlayerNBT(storm.userSpawnedFor).getLong("lastStormDeadlyTime"));
+        assertEquals(
+            0L,
+            PlayerData.getPlayerNBT(storm.userSpawnedFor)
+                .getLong("lastStormDeadlyTime"));
 
         ConfigMisc.Server_Storm_Deadly_UseGlobalRate = false;
         storm.recordNaturalStormFormation(456L);
         assertEquals(123L, storm.manager.lastStormFormed);
-        assertEquals(456L, PlayerData.getPlayerNBT(storm.userSpawnedFor).getLong("lastStormDeadlyTime"));
+        assertEquals(
+            456L,
+            PlayerData.getPlayerNBT(storm.userSpawnedFor)
+                .getLong("lastStormDeadlyTime"));
     }
 
     private static void register(int dimension, boolean enabled, int maxStage, int cooldown, int landOdds,
         int oceanOdds) {
-        ClimateProfileRegistry.register(ClimateProfile.builder(dimension, "test_" + dimension)
-            .weatherEnabled(enabled)
-            .exactStage(maxStage)
-            .deadlyCooldown(cooldown)
-            .spawnOdds(landOdds, oceanOdds)
-            .build());
+        ClimateProfileRegistry.register(
+            ClimateProfile.builder(dimension, "test_" + dimension)
+                .weatherEnabled(enabled)
+                .exactStage(maxStage)
+                .deadlyCooldown(cooldown)
+                .spawnOdds(landOdds, oceanOdds)
+                .build());
     }
 }

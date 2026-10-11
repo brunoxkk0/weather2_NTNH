@@ -22,8 +22,14 @@ public class WeatherFullSyncTest {
         manager.nbtSyncFromServer(windPacket());
         manager.nbtSyncFromServer(weatherPacket());
 
-        assertEquals(1, manager.getStormObjects().size());
-        assertEquals(2, ((StormObject) manager.getStormObjects().get(0)).levelCurIntensityStage);
+        assertEquals(
+            1,
+            manager.getStormObjects()
+                .size());
+        assertEquals(
+            2,
+            ((StormObject) manager.getStormObjects()
+                .get(0)).levelCurIntensityStage);
         assertEquals(0.5F, manager.windMan.getWindSpeedForPriority(), 0.0001F);
         assertTrue(manager.isVanillaRainActiveOnServer);
         assertTrue(manager.isVanillaThunderActiveOnServer);

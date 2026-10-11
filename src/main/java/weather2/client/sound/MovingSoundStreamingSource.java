@@ -52,9 +52,13 @@ public class MovingSoundStreamingSource extends MovingSound {
     }
 
     void updateSound(EntityClientPlayerMP player, World world) {
-        if (player == null || world == null || player.worldObj != world || this.sourceWorld != world
+        if (player == null || world == null
+            || player.worldObj != world
+            || this.sourceWorld != world
             || (this.storm != null && this.storm.isDead)
-            || this.cutOffRange <= 0.0F || Float.isNaN(this.cutOffRange) || Float.isInfinite(this.cutOffRange)
+            || this.cutOffRange <= 0.0F
+            || Float.isNaN(this.cutOffRange)
+            || Float.isInfinite(this.cutOffRange)
             || this.baseVolume <= 0.0F) {
             this.stopSound();
             return;
@@ -71,8 +75,7 @@ public class MovingSoundStreamingSource extends MovingSound {
                 this.storm.posGround.zCoord);
         }
 
-        if (!isFinite(this.realSource) || !isFinite(player.posX) || !isFinite(player.posY)
-            || !isFinite(player.posZ)) {
+        if (!isFinite(this.realSource) || !isFinite(player.posX) || !isFinite(player.posY) || !isFinite(player.posZ)) {
             this.stopSound();
             return;
         }
@@ -90,8 +93,13 @@ public class MovingSoundStreamingSource extends MovingSound {
     }
 
     static float attenuatedVolume(float baseVolume, double distance, float range) {
-        if (Float.isNaN(baseVolume) || Float.isInfinite(baseVolume) || baseVolume <= 0.0F || Double.isNaN(distance)
-            || Double.isInfinite(distance) || distance < 0.0D || Float.isNaN(range) || Float.isInfinite(range)
+        if (Float.isNaN(baseVolume) || Float.isInfinite(baseVolume)
+            || baseVolume <= 0.0F
+            || Double.isNaN(distance)
+            || Double.isInfinite(distance)
+            || distance < 0.0D
+            || Float.isNaN(range)
+            || Float.isInfinite(range)
             || range <= 0.0F) {
             return 0.0F;
         }

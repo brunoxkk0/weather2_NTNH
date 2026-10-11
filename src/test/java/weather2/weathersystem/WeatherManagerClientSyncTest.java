@@ -29,7 +29,10 @@ public class WeatherManagerClientSyncTest {
         receivingManager.nbtSyncFromServer(stormPacket(12L, 2));
         StormObject received = (StormObject) receivingManager.lookupStormObjectsByID.get(Long.valueOf(12L));
 
-        assertEquals(1, receivingManager.getStormObjects().size());
+        assertEquals(
+            1,
+            receivingManager.getStormObjects()
+                .size());
         assertSame(receivingManager, received.manager);
         receivingManager.nbtSyncFromServer(stormPacket(12L, 3));
         assertEquals(3, received.levelCurIntensityStage);

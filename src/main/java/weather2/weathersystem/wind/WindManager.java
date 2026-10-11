@@ -121,7 +121,9 @@ public class WindManager {
         if (!(speed > 0.0F)) {
             return 0.0F;
         }
-        double meanHeight = getMeanLoadedHeight(world, MathHelper.floor_double(pos.xCoord),
+        double meanHeight = getMeanLoadedHeight(
+            world,
+            MathHelper.floor_double(pos.xCoord),
             MathHelper.floor_double(pos.zCoord));
         return speed * heightWindMultiplier(pos.yCoord, meanHeight);
     }
@@ -171,8 +173,10 @@ public class WindManager {
         double nearestDistanceSq = 256.0D * 256.0D;
         for (Object object : this.manager.getStormObjects()) {
             StormObject storm = (StormObject) object;
-            if (storm == null || storm.isDead || storm.tornadoEndPending
-                || storm.levelCurIntensityStage < StormObject.STATE_HIGHWIND || storm.posGround == null) {
+            if (storm == null || storm.isDead
+                || storm.tornadoEndPending
+                || storm.levelCurIntensityStage < StormObject.STATE_HIGHWIND
+                || storm.posGround == null) {
                 continue;
             }
             double dx = storm.posGround.xCoord - pos.xCoord;

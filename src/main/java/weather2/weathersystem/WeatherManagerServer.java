@@ -606,9 +606,7 @@ public class WeatherManagerServer extends WeatherManagerBase {
         data.setString("command", "syncWindUpdate");
         data.setTag("data", parManager.nbtSyncForClient());
         if (player == null) {
-            Weather.eventChannel.sendToDimension(
-                PacketHelper.getNBTPacket(data, Weather.eventChannelName),
-                this.dim);
+            Weather.eventChannel.sendToDimension(PacketHelper.getNBTPacket(data, Weather.eventChannelName), this.dim);
         } else {
             Weather.eventChannel.sendTo(PacketHelper.getNBTPacket(data, Weather.eventChannelName), player);
         }
@@ -721,9 +719,7 @@ public class WeatherManagerServer extends WeatherManagerBase {
         data.setTag("data", inner);
         // NTNH end
         if (player == null) {
-            Weather.eventChannel.sendToDimension(
-                PacketHelper.getNBTPacket(data, Weather.eventChannelName),
-                this.dim);
+            Weather.eventChannel.sendToDimension(PacketHelper.getNBTPacket(data, Weather.eventChannelName), this.dim);
         } else {
             Weather.eventChannel.sendTo(PacketHelper.getNBTPacket(data, Weather.eventChannelName), player);
         }

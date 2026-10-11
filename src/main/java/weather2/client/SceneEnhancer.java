@@ -107,7 +107,8 @@ public class SceneEnhancer implements Runnable {
     public void tickClientThreaded() {
         Minecraft mc = FMLClientHandler.instance()
             .getClient();
-        if (mc.theWorld != null && mc.theWorld == this.lastWorldDetected && mc.thePlayer != null
+        if (mc.theWorld != null && mc.theWorld == this.lastWorldDetected
+            && mc.thePlayer != null
             && WeatherUtilConfig.listDimensionsWindEffects
                 .contains(Integer.valueOf(mc.theWorld.provider.dimensionId))) {
             this.profileSurroundings();
@@ -169,14 +170,10 @@ public class SceneEnhancer implements Runnable {
                                         0.75F + rand.nextFloat() * 0.05F,
                                         false);
                                 } else if (cCor.block == SOUNDMARKER_LEAVES) {
-                                    Vec3 soundPos = Vec3.createVectorHelper(
-                                        (double) cCor.posX,
-                                        (double) cCor.posY,
-                                        (double) cCor.posZ);
-                                    float windSpeed = WindReader.getLocalWindSpeed(
-                                        worldRef,
-                                        soundPos,
-                                        WindReader.WindType.EVENT);
+                                    Vec3 soundPos = Vec3
+                                        .createVectorHelper((double) cCor.posX, (double) cCor.posY, (double) cCor.posZ);
+                                    float windSpeed = WindReader
+                                        .getLocalWindSpeed(worldRef, soundPos, WindReader.WindType.EVENT);
                                     if (windSpeed > 0.2F) {
                                         playTimes.put(
                                             cCor,
@@ -191,10 +188,8 @@ public class SceneEnhancer implements Runnable {
                                             0.7F + rand.nextFloat() * 0.1F,
                                             false);
                                     } else {
-                                        windSpeed = WindReader.getLocalWindSpeed(
-                                            worldRef,
-                                            soundPos,
-                                            WindReader.WindType.DOMINANT);
+                                        windSpeed = WindReader
+                                            .getLocalWindSpeed(worldRef, soundPos, WindReader.WindType.DOMINANT);
                                         if (worldRef.rand.nextInt(15) == 0) {
                                             playTimes.put(
                                                 cCor,
@@ -365,7 +360,9 @@ public class SceneEnhancer implements Runnable {
         if (oldWorld != null) {
             for (int i = oldWorld.weatherEffects.size() - 1; i >= 0; --i) {
                 Object effect = oldWorld.weatherEffects.get(i);
-                if (effect instanceof Entity && effect.getClass().getName().startsWith("weather2.")) {
+                if (effect instanceof Entity && effect.getClass()
+                    .getName()
+                    .startsWith("weather2.")) {
                     oldWorld.weatherEffects.remove(i);
                 }
             }
@@ -638,8 +635,11 @@ public class SceneEnhancer implements Runnable {
         EntityClientPlayerMP player = FMLClientHandler.instance()
             .getClient().thePlayer;
         WeatherManagerClient manager = ClientTickHandler.weatherManager;
-        if (worldRef != null && worldRef == mc.theWorld && player != null && manager != null
-            && manager.getWorld() == worldRef && manager.windMan != null) {
+        if (worldRef != null && worldRef == mc.theWorld
+            && player != null
+            && manager != null
+            && manager.getWorld() == worldRef
+            && manager.windMan != null) {
             if (threadLastWorldTickTime != worldRef.getTotalWorldTime()) {
                 List localSpawnQueue = new ArrayList();
                 List localSpawnQueueNormal = new ArrayList();
@@ -864,7 +864,10 @@ public class SceneEnhancer implements Runnable {
             .getClient();
         EntityClientPlayerMP player = mc.thePlayer;
         WeatherManagerClient manager = ClientTickHandler.weatherManager;
-        if (world == null || player == null || manager == null || manager.getWorld() != world || manager.windMan == null) {
+        if (world == null || player == null
+            || manager == null
+            || manager.getWorld() != world
+            || manager.windMan == null) {
             resetLocalWindSample();
             return;
         }

@@ -71,9 +71,10 @@ public class EventHandlerPacket {
                         .func_152596_g(entP.getGameProfile()))) {
                             WeatherUtilConfig.nbtReceiveClientData(ex.getCompoundTag("guiData"));
                         }
-            } else if (packetCommand.equals("WeatherData") && ex.getString("command").equals("syncRequest")) {
-                ServerTickHandler.requestWeatherSync(entP);
-            }
+            } else if (packetCommand.equals("WeatherData") && ex.getString("command")
+                .equals("syncRequest")) {
+                    ServerTickHandler.requestWeatherSync(entP);
+                }
         } catch (Exception var7) {
             var7.printStackTrace();
         }

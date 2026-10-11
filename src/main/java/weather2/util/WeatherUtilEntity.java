@@ -197,9 +197,12 @@ public class WeatherUtilEntity {
     }
 
     private static boolean isFinite(Vec3 pos) {
-        return pos != null && !Double.isNaN(pos.xCoord) && !Double.isInfinite(pos.xCoord)
-            && !Double.isNaN(pos.yCoord) && !Double.isInfinite(pos.yCoord)
-            && !Double.isNaN(pos.zCoord) && !Double.isInfinite(pos.zCoord);
+        return pos != null && !Double.isNaN(pos.xCoord)
+            && !Double.isInfinite(pos.xCoord)
+            && !Double.isNaN(pos.yCoord)
+            && !Double.isInfinite(pos.yCoord)
+            && !Double.isNaN(pos.zCoord)
+            && !Double.isInfinite(pos.zCoord);
     }
 
     public static boolean isPosOutside(World parWorld, Vec3 parPos) {

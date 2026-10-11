@@ -25,12 +25,9 @@ public class TileEntityWeatherForecastRenderer extends TileEntitySpecialRenderer
         StormObject so = tEnt.lastTickStormObject;
         String descSeverity = "";
         String descDist = "";
-        String descWindAngleCloud = "Wind Angle Clouds: "
-            + (int) tEnt.cachedCloudWindAngle;
-        String descWindAngle = "Wind Angle Effect: "
-            + (int) tEnt.cachedWindAngle;
-        String descWindSpeed = "Wind Speed Effect: "
-            + (float) ((int) (tEnt.cachedWindSpeed * 100.0F)) / 100.0F;
+        String descWindAngleCloud = "Wind Angle Clouds: " + (int) tEnt.cachedCloudWindAngle;
+        String descWindAngle = "Wind Angle Effect: " + (int) tEnt.cachedWindAngle;
+        String descWindSpeed = "Wind Speed Effect: " + (float) ((int) (tEnt.cachedWindSpeed * 100.0F)) / 100.0F;
         String progression = "";
         if (so != null) {
             progression = "Growing ";
@@ -121,10 +118,10 @@ public class TileEntityWeatherForecastRenderer extends TileEntitySpecialRenderer
             1,
             RenderManager.instance.playerViewY);
         int forecastRow = var29;
-        if (tEnt.getWorldObj() != null
-            && tEnt.hasFreshForecastSnapshot(tEnt.getWorldObj().getTotalWorldTime())) {
-            this.renderForecastLine(
-                this.forecastModeText(tEnt.forecastMode), x, y, yOffset, z, forecastRow++);
+        if (tEnt.getWorldObj() != null && tEnt.hasFreshForecastSnapshot(
+            tEnt.getWorldObj()
+                .getTotalWorldTime())) {
+            this.renderForecastLine(this.forecastModeText(tEnt.forecastMode), x, y, yOffset, z, forecastRow++);
             this.renderForecastLine(this.forecastStatusText(tEnt), x, y, yOffset, z, forecastRow++);
             this.renderForecastLine(
                 StatCollector.translateToLocal("weather2.forecast.max_stage") + " " + tEnt.forecastMaxStage,
@@ -135,7 +132,8 @@ public class TileEntityWeatherForecastRenderer extends TileEntitySpecialRenderer
                 forecastRow++);
             this.renderForecastLine(
                 StatCollector.translateToLocal("weather2.forecast.land_odds") + " "
-                    + this.forecastOddsText(tEnt.forecastLandOdds) + " / "
+                    + this.forecastOddsText(tEnt.forecastLandOdds)
+                    + " / "
                     + this.forecastOddsText(tEnt.forecastOceanOdds),
                 x,
                 y,
@@ -143,11 +141,10 @@ public class TileEntityWeatherForecastRenderer extends TileEntitySpecialRenderer
                 z,
                 forecastRow++);
             this.renderForecastLine(
-                StatCollector.translateToLocal("weather2.forecast.progression")
-                    + (tEnt.forecastProgressionOdds > 0
-                        ? StatCollector.translateToLocal("weather2.forecast.progression.one_in")
-                            + " " + tEnt.forecastProgressionOdds
-                        : " " + StatCollector.translateToLocal("weather2.forecast.progression.disabled")),
+                StatCollector.translateToLocal("weather2.forecast.progression") + (tEnt.forecastProgressionOdds > 0
+                    ? StatCollector.translateToLocal("weather2.forecast.progression.one_in") + " "
+                        + tEnt.forecastProgressionOdds
+                    : " " + StatCollector.translateToLocal("weather2.forecast.progression.disabled")),
                 x,
                 y,
                 yOffset,
@@ -163,13 +160,13 @@ public class TileEntityWeatherForecastRenderer extends TileEntitySpecialRenderer
                 z,
                 forecastRow++);
         } else if (tEnt.forecastModeKnown) {
-            this.renderForecastLine(
-                this.forecastModeText(tEnt.forecastMode), x, y, yOffset, z, forecastRow++);
+            this.renderForecastLine(this.forecastModeText(tEnt.forecastMode), x, y, yOffset, z, forecastRow++);
             this.renderForecastLine(
                 tEnt.shouldShowForecastWaiting(
-                    tEnt.getWorldObj() == null ? 0L : tEnt.getWorldObj().getTotalWorldTime())
-                    ? StatCollector.translateToLocal("weather2.forecast.waiting")
-                    : StatCollector.translateToLocal("weather2.forecast.status.player"),
+                    tEnt.getWorldObj() == null ? 0L
+                        : tEnt.getWorldObj()
+                            .getTotalWorldTime()) ? StatCollector.translateToLocal("weather2.forecast.waiting")
+                                : StatCollector.translateToLocal("weather2.forecast.status.player"),
                 x,
                 y,
                 yOffset,
@@ -353,7 +350,8 @@ public class TileEntityWeatherForecastRenderer extends TileEntitySpecialRenderer
         }
         return StatCollector.translateToLocal("weather2.forecast.status.remaining") + " "
             + forecast.forecastRemainingTicks
-            + " " + StatCollector.translateToLocal("weather2.forecast.ticks");
+            + " "
+            + StatCollector.translateToLocal("weather2.forecast.ticks");
     }
 
     private String forecastOddsText(int odds) {

@@ -89,8 +89,7 @@ public class MovingSoundStreamingSourceTest {
         return sound;
     }
 
-    private static EntityClientPlayerMP playerAt(RecordingWorld world, double x, double y, double z)
-        throws Exception {
+    private static EntityClientPlayerMP playerAt(RecordingWorld world, double x, double y, double z) throws Exception {
         EntityClientPlayerMP player = (EntityClientPlayerMP) UNSAFE.allocateInstance(EntityClientPlayerMP.class);
         player.worldObj = world;
         player.posX = x;

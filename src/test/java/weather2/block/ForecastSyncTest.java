@@ -45,9 +45,7 @@ public class ForecastSyncTest {
         NBTTagCompound wrongPosition = new NBTTagCompound();
         wrongPosition.setTag("forecast", server.forecastSyncData());
         TileEntityWeatherForecast wrongPositionClient = forecast(9, 2, 3);
-        wrongPositionClient.onDataPacket(
-            null,
-            new S35PacketUpdateTileEntity(1, 2, 3, 0, wrongPosition));
+        wrongPositionClient.onDataPacket(null, new S35PacketUpdateTileEntity(1, 2, 3, 0, wrongPosition));
         assertFalse(wrongPositionClient.hasForecastSnapshot);
 
         NBTTagCompound invalid = server.forecastSyncData();
