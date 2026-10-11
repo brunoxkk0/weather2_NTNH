@@ -8,6 +8,7 @@ import net.minecraft.tileentity.TileEntity;
 import net.minecraft.util.Vec3;
 
 import weather2.ClientTickHandler;
+import weather2.api.WindReader;
 import weather2.weathersystem.storm.StormObject;
 
 public class TileEntityWeatherForecast extends TileEntity {
@@ -18,11 +19,19 @@ public class TileEntityWeatherForecast extends TileEntity {
     public float smoothAngleRotationalVelAccel = 0.0F;
     public float smoothAngleAdj = 0.1F;
     public float smoothSpeedAdj = 0.1F;
+    public float cachedCloudWindAngle = 0.0F;
+    public float cachedWindAngle = 0.0F;
+    public float cachedWindSpeed = 0.0F;
     public StormObject lastTickStormObject = null;
     public List storms = new ArrayList();
 
     public void updateEntity() {
-        if (this.worldObj.isRemote && this.worldObj.getTotalWorldTime() % 200L == 0L) {
+        if (this.worldObj.isRemote && this.worldObj.getTotalWorldTime() % 200L == 0L
+            && ClientTickHandler.weatherManager != null && ClientTickHandler.weatherManager.getWorld() == this.worldObj) {
+            Vec3 pos = Vec3.createVectorHelper((double) this.xCoord, (double) this.yCoord, (double) this.zCoord);
+            this.cachedCloudWindAngle = WindReader.getLocalWindAngle(this.worldObj, pos, WindReader.WindType.CLOUD);
+            this.cachedWindAngle = WindReader.getLocalWindAngle(this.worldObj, pos, WindReader.WindType.DOMINANT);
+            this.cachedWindSpeed = WindReader.getLocalWindSpeed(this.worldObj, pos, WindReader.WindType.DOMINANT);
             this.lastTickStormObject = ClientTickHandler.weatherManager.getClosestStorm(
                 Vec3.createVectorHelper(
                     (double) this.xCoord,

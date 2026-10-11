@@ -75,6 +75,7 @@ public final class RecordingWorld extends WorldServer {
             world.chunksLoaded = true;
             world.gameRules = new GameRules();
             world.defaultBlock = Blocks.air;
+            world.defaultHeightValue = 64;
             world.groundHeight = Integer.MIN_VALUE;
             world.chunkProvider = (IChunkProvider) Proxy.newProxyInstance(
                 IChunkProvider.class.getClassLoader(),

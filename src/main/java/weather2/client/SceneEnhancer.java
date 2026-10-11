@@ -70,6 +70,10 @@ public class SceneEnhancer implements Runnable {
     public static float curPrecipStrTarget = 0.0F;
     public static float curOvercastStr = 0.0F;
     public static float curOvercastStrTarget = 0.0F;
+    private static World localWindWorld;
+    private static long localWindSampleTick = Long.MIN_VALUE;
+    private static float localWindSpeed;
+    private static float localWindAngle;
 
     public SceneEnhancer() {
         pm = new ParticleBehaviors((Vec3) null);
@@ -165,12 +169,13 @@ public class SceneEnhancer implements Runnable {
                                         0.75F + rand.nextFloat() * 0.05F,
                                         false);
                                 } else if (cCor.block == SOUNDMARKER_LEAVES) {
-                                    float windSpeed = WindReader.getWindSpeed(
+                                    Vec3 soundPos = Vec3.createVectorHelper(
+                                        (double) cCor.posX,
+                                        (double) cCor.posY,
+                                        (double) cCor.posZ);
+                                    float windSpeed = WindReader.getLocalWindSpeed(
                                         worldRef,
-                                        Vec3.createVectorHelper(
-                                            (double) cCor.posX,
-                                            (double) cCor.posY,
-                                            (double) cCor.posZ),
+                                        soundPos,
                                         WindReader.WindType.EVENT);
                                     if (windSpeed > 0.2F) {
                                         playTimes.put(
@@ -186,12 +191,10 @@ public class SceneEnhancer implements Runnable {
                                             0.7F + rand.nextFloat() * 0.1F,
                                             false);
                                     } else {
-                                        windSpeed = WindReader.getWindSpeed(
+                                        windSpeed = WindReader.getLocalWindSpeed(
                                             worldRef,
-                                            Vec3.createVectorHelper(
-                                                (double) cCor.posX,
-                                                (double) cCor.posY,
-                                                (double) cCor.posZ));
+                                            soundPos,
+                                            WindReader.WindType.DOMINANT);
                                         if (worldRef.rand.nextInt(15) == 0) {
                                             playTimes.put(
                                                 cCor,
@@ -375,6 +378,7 @@ public class SceneEnhancer implements Runnable {
         lastTickAmbientThreaded = 0L;
         threadLastWorldTickTime = Long.MIN_VALUE;
         lastTickFoundBlocks = 0;
+        resetLocalWindSample();
         // NTNH start: reset DSurround rain sync and static precipitation state on world transition
         curPrecipStr = 0.0F;
         curPrecipStrTarget = 0.0F;
@@ -847,18 +851,43 @@ public class SceneEnhancer implements Runnable {
         return profileWorld != null && profileWorld == activeWorld;
     }
 
+    private static void resetLocalWindSample() {
+        localWindWorld = null;
+        localWindSampleTick = Long.MIN_VALUE;
+        localWindSpeed = 0.0F;
+        localWindAngle = 0.0F;
+    }
+
     @SideOnly(Side.CLIENT)
     public static void tryWind(World world) {
         Minecraft mc = FMLClientHandler.instance()
             .getClient();
         EntityClientPlayerMP player = mc.thePlayer;
+        WeatherManagerClient manager = ClientTickHandler.weatherManager;
+        if (world == null || player == null || manager == null || manager.getWorld() != world || manager.windMan == null) {
+            resetLocalWindSample();
+            return;
+        }
+        if (localWindWorld != world) {
+            resetLocalWindSample();
+            localWindWorld = world;
+        }
+        long worldTick = world.getTotalWorldTime();
+        if (localWindSampleTick != worldTick && (worldTick % 10L == 0L || localWindSampleTick == Long.MIN_VALUE)) {
+            Vec3 playerPos = Vec3.createVectorHelper(player.posX, player.posY, player.posZ);
+            localWindSpeed = WindReader.getLocalWindSpeed(world, playerPos, WindReader.WindType.DOMINANT);
+            localWindAngle = WindReader.getLocalWindAngle(world, playerPos, WindReader.WindType.DOMINANT);
+            localWindSampleTick = worldTick;
+        }
+        float windSpeed = localWindSpeed;
+        float windAngle = localWindAngle;
         if (player != null) {
             boolean dist = true;
             List list = null;
             list = world.loadedEntityList;
             Random rand = new Random();
             int handleCount = 0;
-            if ((double) ClientTickHandler.weatherManager.windMan.getWindSpeedForPriority() >= 0.1D) {
+            if (windSpeed >= 0.1F) {
                 for (int windMan = 0; windMan < world.weatherEffects.size(); ++windMan) {
                     ++handleCount;
                     Entity volScaleFar = (Entity) world.weatherEffects.get(windMan);
@@ -898,14 +927,14 @@ public class SceneEnhancer implements Runnable {
                             }
                         }
 
-                        applyWindForce(volScaleFar);
-                        applyWindForce(volScaleFar);
+                        applyWindForce(volScaleFar, 1.0D, windSpeed, windAngle);
+                        applyWindForce(volScaleFar, 1.0D, windSpeed, windAngle);
                     }
                 }
             }
 
             WindManager var12 = ClientTickHandler.weatherManager.windMan;
-            if (WeatherUtilParticle.fxLayers != null && (double) var12.getWindSpeedForPriority() >= 0.1D) {
+            if (WeatherUtilParticle.fxLayers != null && windSpeed >= 0.1F) {
                 int i;
                 int var13;
                 for (var13 = 0; var13 < 4; ++var13) {
@@ -924,7 +953,7 @@ public class SceneEnhancer implements Runnable {
                             MathHelper.floor_double(entity1.posZ)) - 1 < (int) entity1.posY + 1
                             || entity1 instanceof EntityTexFX) {
                             if (entity1 instanceof EntityFlameFX) {
-                                if ((double) var12.getWindSpeedForPriority() >= 0.5D) {
+                                if (windSpeed >= 0.5F) {
                                     WeatherUtilParticle.setParticleAge(
                                         (EntityFX) entity1,
                                         WeatherUtilParticle.getParticleAge((EntityFX) entity1) + 2);
@@ -954,7 +983,7 @@ public class SceneEnhancer implements Runnable {
                                 }
                             }
 
-                            applyWindForce(entity1);
+                            applyWindForce(entity1, 1.0D, windSpeed, windAngle);
                         }
                     }
                 }
@@ -983,6 +1012,10 @@ public class SceneEnhancer implements Runnable {
         WindManager windMan = ClientTickHandler.weatherManager.windMan;
         float windSpeed = windMan.getWindSpeedForPriority();
         float windAngle = windMan.getWindAngleForPriority();
+        applyWindForce(ent, multiplier, windSpeed, windAngle);
+    }
+
+    private static void applyWindForce(Entity ent, double multiplier, float windSpeed, float windAngle) {
         double speed = (double) windSpeed * 0.1D / (double) WeatherUtilEntity.getWeight(ent);
         speed *= multiplier;
         if (ent.onGround && (double) windSpeed < 0.7D && speed < 0.3D) {

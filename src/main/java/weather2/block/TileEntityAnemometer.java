@@ -20,6 +20,7 @@ public class TileEntityAnemometer extends TileEntity {
     public float smoothAngleAdj = 0.1F;
     public float smoothSpeedAdj = 0.1F;
     public boolean isOutsideCached = false;
+    public float cachedWindSpeed = 0.0F;
 
     public void updateEntity() {
         if (this.worldObj.isRemote) {
@@ -30,16 +31,14 @@ public class TileEntityAnemometer extends TileEntity {
                         (double) ((float) this.xCoord + 0.5F),
                         (double) ((float) this.yCoord + 0.5F),
                         (double) ((float) this.zCoord + 0.5F)));
+                this.cachedWindSpeed = this.isOutsideCached ? WindReader.getLocalWindSpeed(
+                    this.worldObj,
+                    Vec3.createVectorHelper((double) this.xCoord, (double) this.yCoord, (double) this.zCoord),
+                    WindReader.WindType.DOMINANT) : 0.0F;
             }
 
             if (this.isOutsideCached) {
-                WindReader.getWindAngle(
-                    this.worldObj,
-                    Vec3.createVectorHelper((double) this.xCoord, (double) this.yCoord, (double) this.zCoord));
-                float windSpeed = WindReader.getWindSpeed(
-                    this.worldObj,
-                    Vec3.createVectorHelper((double) this.xCoord, (double) this.yCoord, (double) this.zCoord));
-                this.smoothAngleRotationalVel += windSpeed * 1.0F;
+                this.smoothAngleRotationalVel += this.cachedWindSpeed;
                 if (this.smoothAngleRotationalVel > 50.0F) {
                     this.smoothAngleRotationalVel = 50.0F;
                 }

@@ -13,7 +13,6 @@ import org.lwjgl.opengl.GL11;
 
 import extendedrenderer.ExtendedRenderer;
 import weather2.ClientProxy;
-import weather2.api.WindReader;
 import weather2.block.TileEntityWeatherForecast;
 import weather2.weathersystem.storm.StormObject;
 
@@ -23,16 +22,14 @@ public class TileEntityWeatherForecastRenderer extends TileEntitySpecialRenderer
         TileEntityWeatherForecast tEnt = (TileEntityWeatherForecast) var1;
         String particleCount = ExtendedRenderer.rotEffRenderer.getStatistics();
         StormObject so = tEnt.lastTickStormObject;
-        Vec3 pos = Vec3.createVectorHelper((double) tEnt.xCoord, (double) tEnt.yCoord, (double) tEnt.zCoord);
         String descSeverity = "";
         String descDist = "";
         String descWindAngleCloud = "Wind Angle Clouds: "
-            + (int) WindReader.getWindAngle(var1.getWorldObj(), pos, WindReader.WindType.CLOUD);
+            + (int) tEnt.cachedCloudWindAngle;
         String descWindAngle = "Wind Angle Effect: "
-            + (int) WindReader.getWindAngle(var1.getWorldObj(), pos, WindReader.WindType.DOMINANT);
+            + (int) tEnt.cachedWindAngle;
         String descWindSpeed = "Wind Speed Effect: "
-            + (float) ((int) (WindReader.getWindSpeed(var1.getWorldObj(), pos, WindReader.WindType.DOMINANT) * 100.0F))
-                / 100.0F;
+            + (float) ((int) (tEnt.cachedWindSpeed * 100.0F)) / 100.0F;
         String progression = "";
         if (so != null) {
             progression = "Growing ";

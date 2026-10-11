@@ -7,6 +7,7 @@ import cpw.mods.fml.relauncher.Side;
 import cpw.mods.fml.relauncher.SideOnly;
 import weather2.ClientTickHandler;
 import weather2.ServerTickHandler;
+import weather2.config.ConfigMisc;
 import weather2.weathersystem.WeatherManagerBase;
 
 public class WindReader {
@@ -51,6 +52,50 @@ public class WindReader {
                     : (parWindType == WindReader.WindType.GUST ? wMan.windMan.getWindSpeedForGusts()
                         : (parWindType == WindReader.WindType.CLOUD ? wMan.windMan.getWindSpeedForClouds() : 0.0F))))
             : 0.0F;
+    }
+
+    public static float getLocalWindAngle(World world, Vec3 pos, WindType type) {
+        if (world == null) {
+            return 0.0F;
+        }
+        if (pos == null) {
+            return getWindAngle(world, null, type);
+        }
+        if (!ConfigMisc.Misc_windOn || !isFinite(pos)) {
+            return 0.0F;
+        }
+        WeatherManagerBase manager = getWeatherManager(world);
+        return manager != null && manager.windMan != null ? manager.windMan.getLocalWindAngle(pos, type) : 0.0F;
+    }
+
+    public static float getLocalWindSpeed(World world, Vec3 pos, WindType type) {
+        if (world == null) {
+            return 0.0F;
+        }
+        if (pos == null) {
+            return getWindSpeed(world, null, type);
+        }
+        if (!ConfigMisc.Misc_windOn || !isFinite(pos)) {
+            return 0.0F;
+        }
+        WeatherManagerBase manager = getWeatherManager(world);
+        return manager != null && manager.windMan != null ? manager.windMan.getLocalWindSpeed(world, pos, type) : 0.0F;
+    }
+
+    private static WeatherManagerBase getWeatherManager(World world) {
+        if (world.provider == null) {
+            return null;
+        }
+        WeatherManagerBase manager = world.isRemote ? getWeatherManagerClient()
+            : (WeatherManagerBase) ServerTickHandler.lookupDimToWeatherMan
+                .get(Integer.valueOf(world.provider.dimensionId));
+        return manager != null && manager.dim == world.provider.dimensionId && manager.getWorld() == world ? manager
+            : null;
+    }
+
+    private static boolean isFinite(Vec3 pos) {
+        return !Double.isNaN(pos.xCoord) && !Double.isInfinite(pos.xCoord) && !Double.isNaN(pos.yCoord)
+            && !Double.isInfinite(pos.yCoord) && !Double.isNaN(pos.zCoord) && !Double.isInfinite(pos.zCoord);
     }
 
     @SideOnly(Side.CLIENT)
