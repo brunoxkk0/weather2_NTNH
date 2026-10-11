@@ -112,6 +112,37 @@ public class TornadoPullTest {
     }
 
     @Test
+    public void explicitPlayerPullStillRespectsWindShelter() throws Exception {
+        RecordingWorld world = RecordingWorld.create();
+        world.setHeightValue(4, 0, 100);
+        world.setHeightValue(4, -5, 100);
+        world.setHeightValue(4, 5, 100);
+        world.setHeightValue(-1, 0, 100);
+        world.setHeightValue(9, 0, 100);
+        EntityPlayerMP player = (EntityPlayerMP) UNSAFE.allocateInstance(EntityPlayerMP.class);
+        RecordingWorld.setField(player, "worldObj", world);
+        player.posX = 4.0D;
+        player.posY = 65.0D;
+        player.posZ = 0.0D;
+        world.queryEntities.add(player);
+
+        StormObject storm = MockStormFactory.create(StormObject.STATE_FORMING);
+        storm.pullPlayers = true;
+        storm.tornadoActive = true;
+        storm.currentTopYBlock = 64;
+        storm.maxHeight = 60;
+        storm.pos = net.minecraft.util.Vec3.createVectorHelper(0.0D, 200.0D, 0.0D);
+        storm.posGround = net.minecraft.util.Vec3.createVectorHelper(0.0D, 64.0D, 0.0D);
+        storm.posBaseFormationPos = storm.posGround;
+        storm.tornadoHelper = new TornadoHelper(storm);
+
+        assertFalse(storm.tornadoHelper.forceRotate(world));
+        assertEquals(0.0D, player.motionX, 0.0D);
+        assertEquals(0.0D, player.motionY, 0.0D);
+        assertEquals(0.0D, player.motionZ, 0.0D);
+    }
+
+    @Test
     public void tornadoHelperOnlyAppliesEnabledPlayerPull() throws Exception {
         RecordingWorld world = RecordingWorld.create();
         StormObject storm = MockStormFactory.create(StormObject.STATE_FORMING);

@@ -144,6 +144,64 @@ public class WeatherUtilEntity {
             cheapCheck);
     }
 
+    public static boolean isPosWindExposed(World world, Vec3 pos) {
+        if (!isFinite(pos) || !isChunkLoaded(world, pos.xCoord, pos.zCoord)) {
+            return false;
+        }
+        if (isSkyExposed(world, pos)) {
+            return true;
+        }
+        return isPathToSky(world, pos, ForgeDirection.NORTH) && isPathToSky(world, pos, ForgeDirection.SOUTH)
+            || isPathToSky(world, pos, ForgeDirection.EAST) && isPathToSky(world, pos, ForgeDirection.WEST);
+    }
+
+    public static boolean isEntityWindExposed(Entity entity, boolean skyOnly) {
+        if (entity == null || entity.worldObj == null) {
+            return false;
+        }
+        Vec3 pos = Vec3.createVectorHelper(entity.posX, entity.posY, entity.posZ);
+        return skyOnly ? isSkyExposed(entity.worldObj, pos) : isPosWindExposed(entity.worldObj, pos);
+    }
+
+    private static boolean isSkyExposed(World world, Vec3 pos) {
+        if (!isFinite(pos) || !isChunkLoaded(world, pos.xCoord, pos.zCoord)) {
+            return false;
+        }
+        return (double) world.getHeightValue(MathHelper.floor_double(pos.xCoord), MathHelper.floor_double(pos.zCoord))
+            < pos.yCoord + 1.0D;
+    }
+
+    private static boolean isPathToSky(World world, Vec3 pos, ForgeDirection direction) {
+        double x = pos.xCoord + (double) direction.offsetX * 5.0D;
+        double z = pos.zCoord + (double) direction.offsetZ * 5.0D;
+        if (!isChunkLoaded(world, x, z)) {
+            return false;
+        }
+        Vec3 start = Vec3.createVectorHelper(pos.xCoord, pos.yCoord + 1.0D, pos.zCoord);
+        Vec3 end = Vec3.createVectorHelper(x, start.yCoord, z);
+        if ((double) world.getHeightValue(MathHelper.floor_double(x), MathHelper.floor_double(z)) >= end.yCoord) {
+            return false;
+        }
+        return world.rayTraceBlocks(start, end) == null;
+    }
+
+    private static boolean isChunkLoaded(World world, double x, double z) {
+        if (world == null || Double.isNaN(x) || Double.isInfinite(x) || Double.isNaN(z) || Double.isInfinite(z)) {
+            return false;
+        }
+        if (world.getChunkProvider() == null) {
+            return false;
+        }
+        return world.getChunkProvider()
+            .chunkExists(MathHelper.floor_double(x) >> 4, MathHelper.floor_double(z) >> 4);
+    }
+
+    private static boolean isFinite(Vec3 pos) {
+        return pos != null && !Double.isNaN(pos.xCoord) && !Double.isInfinite(pos.xCoord)
+            && !Double.isNaN(pos.yCoord) && !Double.isInfinite(pos.yCoord)
+            && !Double.isNaN(pos.zCoord) && !Double.isInfinite(pos.zCoord);
+    }
+
     public static boolean isPosOutside(World parWorld, Vec3 parPos) {
         return isPosOutside(parWorld, parPos, false);
     }

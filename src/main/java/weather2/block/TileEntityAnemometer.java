@@ -24,7 +24,7 @@ public class TileEntityAnemometer extends TileEntity {
     public void updateEntity() {
         if (this.worldObj.isRemote) {
             if (this.worldObj.getTotalWorldTime() % 40L == 0L) {
-                this.isOutsideCached = WeatherUtilEntity.isPosOutside(
+                this.isOutsideCached = WeatherUtilEntity.isPosWindExposed(
                     this.worldObj,
                     Vec3.createVectorHelper(
                         (double) ((float) this.xCoord + 0.5F),

@@ -73,7 +73,7 @@ public class TornadoHelper {
                     && this.getDistanceXZ(this.storm.posBaseFormationPos, entity1.posX, entity1.posY, entity1.posZ)
                         < dist
                     && WeatherUtilEntity
-                        .isEntityOutside(entity1, !(entity1 instanceof net.minecraft.entity.player.EntityPlayer))) {
+                        .isEntityWindExposed(entity1, !(entity1 instanceof net.minecraft.entity.player.EntityPlayer))) {
                     this.storm.spinEntity(entity1);
                     foundEnt = true;
                 }

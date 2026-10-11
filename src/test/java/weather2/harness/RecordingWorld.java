@@ -8,6 +8,8 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Random;
+import java.util.HashSet;
+import java.util.Set;
 
 import net.minecraft.block.Block;
 import net.minecraft.entity.Entity;
@@ -45,6 +47,14 @@ public final class RecordingWorld extends WorldServer {
     public int groundHeight = Integer.MIN_VALUE;
     public long worldTime = 1L;
     public BiomeGenBase biome = BiomeGenBase.plains;
+    public int defaultHeightValue = 64;
+    public int heightValueQueries;
+    public int chunkExistsQueries;
+    public int rayTraceQueries;
+    public int heightQueriesInUnloadedChunks;
+    public Map<Long, Integer> heightValues;
+    public Set<Long> blockedRayEndpoints;
+    public Set<Long> unloadedChunks;
     public TileEntity tileEntity;
     private boolean chunksLoaded = true;
 
@@ -59,6 +69,9 @@ public final class RecordingWorld extends WorldServer {
             world.blocks = new HashMap<Long, Block>();
             world.spawned = new ArrayList<Entity>();
             world.queryEntities = new ArrayList<Entity>();
+            world.heightValues = new HashMap<Long, Integer>();
+            world.blockedRayEndpoints = new HashSet<Long>();
+            world.unloadedChunks = new HashSet<Long>();
             world.chunksLoaded = true;
             world.gameRules = new GameRules();
             world.defaultBlock = Blocks.air;
@@ -67,7 +80,7 @@ public final class RecordingWorld extends WorldServer {
                 IChunkProvider.class.getClassLoader(),
                 new Class<?>[] { IChunkProvider.class },
                 (proxy, method, args) -> method.getName()
-                    .equals("chunkExists") ? Boolean.valueOf(world.chunksLoaded)
+                    .equals("chunkExists") ? Boolean.valueOf(world.hasChunk((Integer) args[0], (Integer) args[1]))
                         : method.getReturnType() == boolean.class ? Boolean.TRUE : null);
             setField(provider, "dimensionId", Integer.valueOf(0));
             setField(world, "provider", provider);
@@ -87,6 +100,32 @@ public final class RecordingWorld extends WorldServer {
 
     public void setChunkLoaded(boolean loaded) {
         this.chunksLoaded = loaded;
+    }
+
+    public void setChunkLoadedAt(int chunkX, int chunkZ, boolean loaded) {
+        Long key = Long.valueOf(columnKey(chunkX, chunkZ));
+        if (loaded) {
+            this.unloadedChunks.remove(key);
+        } else {
+            this.unloadedChunks.add(key);
+        }
+    }
+
+    public void setHeightValue(int x, int z, int height) {
+        this.heightValues.put(Long.valueOf(columnKey(x, z)), Integer.valueOf(height));
+    }
+
+    public void blockRayEndpoint(int x, int z) {
+        this.blockedRayEndpoints.add(Long.valueOf(columnKey(x, z)));
+    }
+
+    private boolean hasChunk(int x, int z) {
+        ++this.chunkExistsQueries;
+        return this.chunksLoaded && !this.unloadedChunks.contains(Long.valueOf(columnKey(x, z)));
+    }
+
+    private static long columnKey(int x, int z) {
+        return ((long) x << 32) ^ ((long) z & 0xffffffffL);
     }
 
     private static long key(int x, int y, int z) {
@@ -124,7 +163,12 @@ public final class RecordingWorld extends WorldServer {
 
     @Override
     public int getHeightValue(int x, int z) {
-        return 64;
+        ++this.heightValueQueries;
+        if (this.unloadedChunks.contains(Long.valueOf(columnKey(x >> 4, z >> 4)))) {
+            ++this.heightQueriesInUnloadedChunks;
+        }
+        Integer height = this.heightValues.get(Long.valueOf(columnKey(x, z)));
+        return height == null ? this.defaultHeightValue : height.intValue();
     }
 
     @Override
@@ -229,6 +273,16 @@ public final class RecordingWorld extends WorldServer {
 
     @Override
     public MovingObjectPosition rayTraceBlocks(Vec3 from, Vec3 to) {
+        ++this.rayTraceQueries;
+        int x = net.minecraft.util.MathHelper.floor_double(to.xCoord);
+        int z = net.minecraft.util.MathHelper.floor_double(to.zCoord);
+        if (this.blockedRayEndpoints.contains(Long.valueOf(columnKey(x, z)))) {
+            try {
+                return (MovingObjectPosition) UNSAFE.allocateInstance(MovingObjectPosition.class);
+            } catch (InstantiationException e) {
+                throw new AssertionError(e);
+            }
+        }
         return null;
     }
 
