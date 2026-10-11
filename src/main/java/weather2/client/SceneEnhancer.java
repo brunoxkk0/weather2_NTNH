@@ -74,6 +74,7 @@ public class SceneEnhancer implements Runnable {
     private static long localWindSampleTick = Long.MIN_VALUE;
     private static float localWindSpeed;
     private static float localWindAngle;
+    private static float visualWindIntensity;
 
     public SceneEnhancer() {
         pm = new ParticleBehaviors((Vec3) null);
@@ -381,6 +382,7 @@ public class SceneEnhancer implements Runnable {
         curPrecipStrTarget = 0.0F;
         curOvercastStr = 0.0F;
         curOvercastStrTarget = 0.0F;
+        visualWindIntensity = 0.0F;
         weather2.compat.WeatherNTNHHooks.onPrecipitationTick(0.0F);
         // NTNH end
     }
@@ -393,6 +395,10 @@ public class SceneEnhancer implements Runnable {
         if (entP == null || entP.worldObj == null) {
             return;
         }
+        boolean visualEffectsEnabled = ConfigMisc.Visual_SandSqualls && ConfigMisc.Wind_Particle_sand
+            || ConfigMisc.Visual_BlizzardWind && ConfigMisc.Particle_RainSnow;
+        boolean visualChunkLoaded = visualEffectsEnabled
+            && isVisualParticleChunkLoaded(entP.worldObj, entP.posX, entP.posZ);
         float curPrecipVal = getRainStrengthAndControlVisuals(entP);
         if (ConfigMisc.Particle_RainSnow) {
             // NTNH end
@@ -468,7 +474,177 @@ public class SceneEnhancer implements Runnable {
                 }
             }
         }
+        tickVisualWindParticles(entP, curPrecipVal, visualChunkLoaded);
 
+    }
+
+    private static void tickVisualWindParticles(EntityClientPlayerMP player, float precipitation, boolean chunkLoaded) {
+        boolean sandEnabled = ConfigMisc.Visual_SandSqualls && ConfigMisc.Wind_Particle_sand;
+        boolean snowEnabled = ConfigMisc.Visual_BlizzardWind;
+        if (!sandEnabled && !snowEnabled) {
+            visualWindIntensity = 0.0F;
+            return;
+        }
+
+        World world = player.worldObj;
+        int x = MathHelper.floor_double(player.posX);
+        int y = MathHelper.floor_double(player.posY);
+        int z = MathHelper.floor_double(player.posZ);
+        boolean exposed = chunkLoaded && world.canBlockSeeTheSky(x, y, z);
+        boolean precipitating = Math.abs(precipitation) > 1.0E-4F || world.isRaining();
+        boolean needsColdSample = snowEnabled && ConfigMisc.Particle_RainSnow
+            && chunkLoaded
+            && exposed
+            && precipitating;
+        int precipitationHeight = chunkLoaded && exposed && (sandEnabled || needsColdSample)
+            ? world.getPrecipitationHeight(x, z)
+            : 0;
+        boolean sandySurface = sandEnabled && precipitationHeight > 0
+            && world.getBlock(x, precipitationHeight - 1, z) == Blocks.sand;
+        boolean sandEligible = shouldEmitSandSquall(sandEnabled, chunkLoaded, exposed, sandySurface, precipitating);
+        boolean coldPrecipitation = false;
+        BiomeGenBase biome = needsColdSample ? world.getBiomeGenForCoords(x, z) : null;
+        if (needsColdSample && biome != null) {
+            float temperature = biome.getFloatTemperature(x, y, z);
+            coldPrecipitation = world.getWorldChunkManager()
+                .getTemperatureAtHeight(temperature, precipitationHeight) < 0.15F;
+        }
+        boolean snowEligible = shouldEmitBlizzardSnow(
+            snowEnabled,
+            ConfigMisc.Particle_RainSnow,
+            chunkLoaded,
+            exposed,
+            coldPrecipitation,
+            precipitating);
+        float targetIntensity = sandEligible || snowEligible ? squallIntensity(localWindSpeed) : 0.0F;
+        visualWindIntensity = approachSquallIntensity(visualWindIntensity, targetIntensity);
+
+        int remaining = 16;
+        if (sandEligible && visualWindIntensity > 0.0F) {
+            int count = Math.min(
+                remaining,
+                extraParticleCount(
+                    visualWindIntensity,
+                    ConfigMisc.Wind_Particle_effect_rate,
+                    Minecraft.getMinecraft().gameSettings.particleSetting));
+            for (int i = 0; i < count; ++i) {
+                spawnSandSquallParticle(player, visualWindIntensity);
+            }
+            remaining -= count;
+        }
+        if (snowEligible && visualWindIntensity > 0.0F && remaining > 0) {
+            int count = Math.min(
+                remaining,
+                extraParticleCount(
+                    visualWindIntensity,
+                    ConfigMisc.Particle_Precipitation_effect_rate,
+                    Minecraft.getMinecraft().gameSettings.particleSetting));
+            for (int i = 0; i < count; ++i) {
+                spawnBlizzardSnowParticle(player, precipitation);
+            }
+        }
+    }
+
+    private static void spawnSandSquallParticle(EntityClientPlayerMP player, float intensity) {
+        if (pm == null || ParticleRegistry.squareGrey == null) {
+            return;
+        }
+        World world = player.worldObj;
+        Random random = world.rand;
+        double speed = 0.03D + (double) intensity * 0.08D;
+        double x = player.posX + random.nextDouble() * 20.0D - 10.0D;
+        double z = player.posZ + random.nextDouble() * 20.0D - 10.0D;
+        if (!isVisualParticleChunkLoaded(world, x, z)) {
+            return;
+        }
+        EntityRotFX particle = pm.spawnNewParticleIconFX(
+            world,
+            ParticleRegistry.squareGrey,
+            x,
+            player.posY + random.nextDouble() * 2.0D,
+            z,
+            (random.nextDouble() - 0.5D) * speed,
+            (random.nextDouble() - 0.5D) * 0.02D,
+            (random.nextDouble() - 0.5D) * speed);
+        particle.setRBGColorF(0.78F, 0.66F, 0.43F);
+        particle.setScale(0.04F + random.nextFloat() * 0.08F);
+        particle.setGravity(0.0F);
+        particle.setMaxAge(20 + random.nextInt(20));
+        particle.rotationYaw = random.nextFloat() * 360.0F;
+        particle.spawnAsWeatherEffect();
+    }
+
+    private static void spawnBlizzardSnowParticle(EntityClientPlayerMP player, float precipitation) {
+        World world = player.worldObj;
+        int radius = 50;
+        double x = player.posX + world.rand.nextInt(radius) - radius / 2;
+        double z = player.posZ + world.rand.nextInt(radius) - radius / 2;
+        if (!isVisualParticleChunkLoaded(world, x, z)) {
+            return;
+        }
+        EntityFallingSnowFX particle = new EntityFallingSnowFX(
+            world,
+            x,
+            player.posY + 10.0D,
+            z,
+            0.0D,
+            -5.0D - world.rand.nextInt(5) * -1.0D,
+            0.0D,
+            5.5D,
+            6);
+        particle.severityOfRainRate = Math.max(1, (int) (Math.abs(precipitation) * 5.0F));
+        particle.renderDistanceWeight = 1.0D;
+        particle.setSize(1.2F, 1.2F);
+        particle.rotationYaw = world.rand.nextFloat() * 360.0F - 180.0F;
+        particle.setGravity(1.0E-5F);
+        particle.spawnAsWeatherEffect();
+    }
+
+    static boolean isVisualParticleChunkLoaded(World world, double x, double z) {
+        return world.getChunkProvider()
+            .chunkExists(MathHelper.floor_double(x) >> 4, MathHelper.floor_double(z) >> 4);
+    }
+
+    static float squallIntensity(float localWind) {
+        if (Float.isNaN(localWind) || Float.isInfinite(localWind)) {
+            return 0.0F;
+        }
+        return Math.max(0.0F, Math.min(1.0F, (localWind - 0.7F) / 0.7F));
+    }
+
+    static float approachSquallIntensity(float current, float target) {
+        if (Float.isNaN(current) || Float.isInfinite(current)) {
+            current = 0.0F;
+        }
+        if (Float.isNaN(target) || Float.isInfinite(target)) {
+            target = 0.0F;
+        }
+        current = Math.max(0.0F, Math.min(1.0F, current));
+        target = Math.max(0.0F, Math.min(1.0F, target));
+        return current + Math.max(-0.05F, Math.min(0.05F, target - current));
+    }
+
+    static int extraParticleCount(float intensity, double effectRate, int particleSetting) {
+        if (Float.isNaN(intensity) || Float.isInfinite(intensity)
+            || Double.isNaN(effectRate)
+            || Double.isInfinite(effectRate)
+            || effectRate <= 0.0D
+            || particleSetting >= 2) {
+            return 0;
+        }
+        double quality = particleSetting == 1 ? 0.5D : 1.0D;
+        double rate = Math.max(0.0D, Math.min(1.0D, effectRate));
+        return (int) Math.floor(Math.max(0.0D, Math.min(1.0D, intensity)) * 16.0D * rate * quality);
+    }
+
+    static boolean shouldEmitSandSquall(boolean enabled, boolean chunkLoaded, boolean exposed, boolean sandyBiome,
+        boolean precipitating) {
+        return enabled && chunkLoaded && exposed && sandyBiome && !precipitating;
+    }
+
+    static boolean shouldEmitBlizzardSnow(boolean enabled, boolean rainSnowEnabled, boolean chunkLoaded,
+        boolean exposed, boolean coldPrecipitation, boolean precipitating) {
+        return enabled && rainSnowEnabled && chunkLoaded && exposed && coldPrecipitation && precipitating;
     }
 
     public static float getRainStrengthAndControlVisuals(EntityPlayer entP) {

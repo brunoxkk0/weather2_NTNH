@@ -84,6 +84,10 @@ public class ConfigMisc implements IConfigCategory {
     public static double Wind_Particle_effect_rate = 1.0D;
     public static boolean Wind_Particle_air = true;
     public static boolean Wind_Particle_sand = true;
+    @ConfigComment({ "Show local sand squalls during strong wind in exposed sandy biomes" })
+    public static boolean Visual_SandSqualls = false;
+    @ConfigComment({ "Add wind-driven snow during cold precipitation" })
+    public static boolean Visual_BlizzardWind = false;
     public static boolean Wind_Particle_waterfall = true;
     public static boolean Wind_Particle_fire = true;
     public static boolean Wind_NoWindEvents = false;
