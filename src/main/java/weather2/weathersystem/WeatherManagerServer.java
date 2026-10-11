@@ -550,11 +550,11 @@ public class WeatherManagerServer extends WeatherManagerBase {
                     entP);
             }
 
-            // NTNH start: sync vanilla weather state immediately on player login
+            this.syncWindUpdate(this.windMan, entP);
+
             this.isVanillaRainActiveOnServer = world.isRaining();
             this.isVanillaThunderActiveOnServer = world.isThundering();
-            this.syncWeatherVanilla();
-            // NTNH end
+            this.syncWeatherVanilla(entP);
         }
 
     }
@@ -581,6 +581,7 @@ public class WeatherManagerServer extends WeatherManagerBase {
     public void syncLightningNew(EntityLightningBolt parEnt) {
         NBTTagCompound data = new NBTTagCompound();
         data.setString("packetCommand", "WeatherData");
+        data.setInteger("dimensionId", this.dim);
         data.setString("command", "syncLightningNew");
         NBTTagCompound nbt = new NBTTagCompound();
         nbt.setInteger("posX", MathHelper.floor_double(parEnt.posX));
@@ -595,14 +596,25 @@ public class WeatherManagerServer extends WeatherManagerBase {
     }
 
     public void syncWindUpdate(WindManager parManager) {
+        this.syncWindUpdate(parManager, null);
+    }
+
+    private void syncWindUpdate(WindManager parManager, EntityPlayerMP player) {
         NBTTagCompound data = new NBTTagCompound();
         data.setString("packetCommand", "WeatherData");
+        data.setInteger("dimensionId", this.dim);
         data.setString("command", "syncWindUpdate");
         data.setTag("data", parManager.nbtSyncForClient());
-        Weather.eventChannel.sendToDimension(
-            PacketHelper.getNBTPacket(data, Weather.eventChannelName),
-            this.getWorld().provider.dimensionId);
-        FMLInterModComms.sendRuntimeMessage(Weather.instance, Weather.modID, "weather.wind", data);
+        if (player == null) {
+            Weather.eventChannel.sendToDimension(
+                PacketHelper.getNBTPacket(data, Weather.eventChannelName),
+                this.dim);
+        } else {
+            Weather.eventChannel.sendTo(PacketHelper.getNBTPacket(data, Weather.eventChannelName), player);
+        }
+        if (player == null) {
+            FMLInterModComms.sendRuntimeMessage(Weather.instance, Weather.modID, "weather.wind", data);
+        }
     }
 
     public void syncStormNew(StormObject parStorm) {
@@ -612,6 +624,7 @@ public class WeatherManagerServer extends WeatherManagerBase {
     public void syncStormNew(StormObject parStorm, EntityPlayerMP entP) {
         NBTTagCompound data = new NBTTagCompound();
         data.setString("packetCommand", "WeatherData");
+        data.setInteger("dimensionId", this.dim);
         data.setString("command", "syncStormNew");
         data.setTag("data", parStorm.nbtSyncForClient(true));
         if (entP == null) {
@@ -628,6 +641,7 @@ public class WeatherManagerServer extends WeatherManagerBase {
         NBTTagCompound data = new NBTTagCompound();
         data.setInteger("stormCount", stormObjectsData.size());
         data.setString("packetCommand", "WeatherData");
+        data.setInteger("dimensionId", this.dim);
         data.setString("command", "syncStormUpdate");
         int stormNumber = 0;
 
@@ -644,6 +658,7 @@ public class WeatherManagerServer extends WeatherManagerBase {
     public void syncStormRemove(StormObject parStorm) {
         NBTTagCompound data = new NBTTagCompound();
         data.setString("packetCommand", "WeatherData");
+        data.setInteger("dimensionId", this.dim);
         data.setString("command", "syncStormRemove");
         data.setTag("data", parStorm.nbtSyncForClient());
         data.getCompoundTag("data")
@@ -662,6 +677,7 @@ public class WeatherManagerServer extends WeatherManagerBase {
     public void syncVolcanoNew(VolcanoObject parStorm, EntityPlayerMP entP) {
         NBTTagCompound data = new NBTTagCompound();
         data.setString("packetCommand", "WeatherData");
+        data.setInteger("dimensionId", this.dim);
         data.setString("command", "syncVolcanoNew");
         data.setTag("data", parStorm.nbtSyncForClient());
         if (entP == null) {
@@ -677,6 +693,7 @@ public class WeatherManagerServer extends WeatherManagerBase {
     public void syncVolcanoUpdate(VolcanoObject parStorm) {
         NBTTagCompound data = new NBTTagCompound();
         data.setString("packetCommand", "WeatherData");
+        data.setInteger("dimensionId", this.dim);
         data.setString("command", "syncVolcanoUpdate");
         data.setTag("data", parStorm.nbtSyncForClient());
         Weather.eventChannel.sendToDimension(
@@ -687,8 +704,13 @@ public class WeatherManagerServer extends WeatherManagerBase {
     public void syncVolcanoRemove(VolcanoObject parStorm) {}
 
     public void syncWeatherVanilla() {
+        this.syncWeatherVanilla(null);
+    }
+
+    private void syncWeatherVanilla(EntityPlayerMP player) {
         NBTTagCompound data = new NBTTagCompound();
         data.setString("packetCommand", "WeatherData");
+        data.setInteger("dimensionId", this.dim);
         data.setString("command", "syncWeatherUpdate");
         // NTNH start: write both rain and thunder flags to root and 'data' sub-compound
         data.setBoolean("isVanillaRainActiveOnServer", this.isVanillaRainActiveOnServer);
@@ -698,8 +720,12 @@ public class WeatherManagerServer extends WeatherManagerBase {
         inner.setBoolean("isVanillaThunderActiveOnServer", this.isVanillaThunderActiveOnServer);
         data.setTag("data", inner);
         // NTNH end
-        Weather.eventChannel.sendToDimension(
-            PacketHelper.getNBTPacket(data, Weather.eventChannelName),
-            this.getWorld().provider.dimensionId);
+        if (player == null) {
+            Weather.eventChannel.sendToDimension(
+                PacketHelper.getNBTPacket(data, Weather.eventChannelName),
+                this.dim);
+        } else {
+            Weather.eventChannel.sendTo(PacketHelper.getNBTPacket(data, Weather.eventChannelName), player);
+        }
     }
 }

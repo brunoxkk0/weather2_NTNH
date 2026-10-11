@@ -6,7 +6,6 @@ import net.minecraft.world.World;
 import cpw.mods.fml.client.FMLClientHandler;
 import cpw.mods.fml.relauncher.Side;
 import cpw.mods.fml.relauncher.SideOnly;
-import weather2.ClientTickHandler;
 import weather2.Weather;
 import weather2.entity.EntityLightningBolt;
 import weather2.weathersystem.storm.StormObject;
@@ -14,12 +13,20 @@ import weather2.weathersystem.storm.StormObject;
 @SideOnly(Side.CLIENT)
 public class WeatherManagerClient extends WeatherManagerBase {
 
+    private final World clientWorld;
+
     public WeatherManagerClient(int parDim) {
         super(parDim);
+        this.clientWorld = null;
+    }
+
+    public WeatherManagerClient(World world) {
+        super(world.provider.dimensionId);
+        this.clientWorld = world;
     }
 
     public World getWorld() {
-        return FMLClientHandler.instance()
+        return this.clientWorld != null ? this.clientWorld : FMLClientHandler.instance()
             .getClient().theWorld;
     }
 
@@ -32,9 +39,15 @@ public class WeatherManagerClient extends WeatherManagerBase {
         NBTTagCompound nbt;
         if (command.equals("syncStormNew")) {
             nbt = parNBT.getCompoundTag("data");
-            StormObject posXS = new StormObject(ClientTickHandler.weatherManager);
-            posXS.nbtSyncFromServer(nbt);
-            this.addStormObject(posXS);
+            long stormId = nbt.getLong("ID");
+            StormObject storm = (StormObject) this.lookupStormObjectsByID.get(Long.valueOf(stormId));
+            if (storm == null) {
+                storm = new StormObject(this);
+                storm.nbtSyncFromServer(nbt);
+                this.addStormObject(storm);
+            } else {
+                storm.nbtSyncFromServer(nbt);
+            }
         } else {
             long var15;
             if (command.equals("syncStormRemove")) {

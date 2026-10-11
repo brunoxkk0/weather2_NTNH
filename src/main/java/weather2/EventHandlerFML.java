@@ -7,6 +7,8 @@ import net.minecraft.world.World;
 
 import cpw.mods.fml.common.eventhandler.SubscribeEvent;
 import cpw.mods.fml.common.gameevent.PlayerEvent.PlayerLoggedInEvent;
+import cpw.mods.fml.common.gameevent.PlayerEvent.PlayerLoggedOutEvent;
+import cpw.mods.fml.common.gameevent.PlayerEvent.PlayerChangedDimensionEvent;
 import cpw.mods.fml.common.gameevent.TickEvent.ClientTickEvent;
 import cpw.mods.fml.common.gameevent.TickEvent.Phase;
 import cpw.mods.fml.common.gameevent.TickEvent.RenderTickEvent;
@@ -64,6 +66,16 @@ public class EventHandlerFML {
     @SubscribeEvent
     public void playerLoggedIn(PlayerLoggedInEvent event) {
         ServerTickHandler.playerJoinedServerSyncFull((EntityPlayerMP) event.player);
+    }
+
+    @SubscribeEvent
+    public void playerChangedDimension(PlayerChangedDimensionEvent event) {
+        ServerTickHandler.playerJoinedServerSyncFull((EntityPlayerMP) event.player);
+    }
+
+    @SubscribeEvent
+    public void playerLoggedOut(PlayerLoggedOutEvent event) {
+        ServerTickHandler.removeWeatherSyncRequest((EntityPlayerMP) event.player);
     }
 
 }

@@ -23,8 +23,7 @@ public class EventHandlerPacket {
             NBTTagCompound ex = PacketHelper.readNBTTagCompound(event.packet.payload());
             String packetCommand = ex.getString("packetCommand");
             if (packetCommand.equals("WeatherData")) {
-                ClientTickHandler.checkClientWeather();
-                ClientTickHandler.weatherManager.nbtSyncFromServer(ex);
+                ClientTickHandler.scheduleWeatherData(event.handler, ex);
             } else if (packetCommand.equals("EZGuiData")) {
                 String command = ex.getString("command");
                 Weather.dbg("receiving GUI data for client, command: " + command);
@@ -72,6 +71,8 @@ public class EventHandlerPacket {
                         .func_152596_g(entP.getGameProfile()))) {
                             WeatherUtilConfig.nbtReceiveClientData(ex.getCompoundTag("guiData"));
                         }
+            } else if (packetCommand.equals("WeatherData") && ex.getString("command").equals("syncRequest")) {
+                ServerTickHandler.requestWeatherSync(entP);
             }
         } catch (Exception var7) {
             var7.printStackTrace();

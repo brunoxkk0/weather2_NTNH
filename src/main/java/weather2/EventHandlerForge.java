@@ -3,6 +3,7 @@ package weather2;
 import net.minecraftforge.client.event.RenderWorldLastEvent;
 import net.minecraftforge.client.event.TextureStitchEvent;
 import net.minecraftforge.event.world.WorldEvent.Save;
+import net.minecraftforge.event.world.WorldEvent.Unload;
 
 import cpw.mods.fml.common.eventhandler.SubscribeEvent;
 import cpw.mods.fml.relauncher.Side;
@@ -19,7 +20,15 @@ public class EventHandlerForge {
     @SideOnly(Side.CLIENT)
     public void worldRender(RenderWorldLastEvent event) {
         ClientTickHandler.checkClientWeather();
-        ClientTickHandler.weatherManager.tickRender(event.partialTicks);
+        if (ClientTickHandler.weatherManager != null) {
+            ClientTickHandler.weatherManager.tickRender(event.partialTicks);
+        }
+    }
+
+    @SubscribeEvent
+    @SideOnly(Side.CLIENT)
+    public void clientWorldUnload(Unload event) {
+        ClientTickHandler.clearClientWorld(event.world);
     }
 
     @SubscribeEvent

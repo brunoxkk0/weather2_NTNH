@@ -117,6 +117,13 @@ public class ServerTickHandlerTest {
         assertTrue(ServerTickHandler.scanSavedStormIdsIfNeeded(this.temporaryFolder.getRoot(), 200L));
     }
 
+    @Test
+    public void weatherSyncRequestsThrottlePerDimensionAndAllowDimensionChanges() {
+        assertFalse(ServerTickHandler.canAcceptWeatherSync(99L, 0, 0, 0L));
+        assertTrue(ServerTickHandler.canAcceptWeatherSync(100L, 0, 0, 0L));
+        assertTrue(ServerTickHandler.canAcceptWeatherSync(1L, 7, 0, 0L));
+    }
+
     private void writeSave(String name, long nextId, long stormId) throws Exception {
         writeSave(this.temporaryFolder.getRoot(), name, nextId, stormId);
     }

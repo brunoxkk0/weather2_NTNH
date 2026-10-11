@@ -3,7 +3,11 @@ package weather2;
 import java.io.File;
 import java.io.FileInputStream;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.HashMap;
+import java.util.Map;
+import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
 
 import net.minecraft.entity.player.EntityPlayerMP;
 import net.minecraft.nbt.CompressedStreamTools;
@@ -33,6 +37,20 @@ public class ServerTickHandler {
     private static volatile Thread serverThread;
     private static boolean savedStormIdsScanned;
     private static long savedStormIdsRetryTick;
+    private static long syncRequestTick;
+    private static final Set<EntityPlayerMP> pendingWeatherSync = Collections
+        .newSetFromMap(new ConcurrentHashMap<EntityPlayerMP, Boolean>());
+    private static final Map<EntityPlayerMP, SyncRequestState> lastWeatherSync = new ConcurrentHashMap<EntityPlayerMP, SyncRequestState>();
+
+    private static final class SyncRequestState {
+        private final int dimension;
+        private final long tick;
+
+        private SyncRequestState(int dimension, long tick) {
+            this.dimension = dimension;
+            this.tick = tick;
+        }
+    }
 
     public static boolean isOnServerThread() {
         return serverThread != null && serverThread == Thread.currentThread();
@@ -50,6 +68,7 @@ public class ServerTickHandler {
             if (serverThread == null) {
                 serverThread = Thread.currentThread();
             }
+            ++syncRequestTick;
             WorldServer world = FMLCommonHandler.instance()
                 .getMinecraftServerInstance()
                 .worldServerForDimension(0);
@@ -89,6 +108,8 @@ public class ServerTickHandler {
                         .get(Integer.valueOf(worlds[testRainRequest].provider.dimensionId))).tick();
                 }
             }
+
+            processWeatherSyncRequests();
 
             boolean var8 = false;
             if (var8) {
@@ -228,6 +249,54 @@ public class ServerTickHandler {
 
     }
 
+    public static void requestWeatherSync(EntityPlayerMP player) {
+        if (player != null) {
+            pendingWeatherSync.add(player);
+        }
+    }
+
+    static void processWeatherSyncRequests() {
+        EntityPlayerMP[] requests = pendingWeatherSync.toArray(new EntityPlayerMP[pendingWeatherSync.size()]);
+        for (int i = 0; i < requests.length; ++i) {
+            EntityPlayerMP player = requests[i];
+            if (player.worldObj == null || player.isDead) {
+                pendingWeatherSync.remove(player);
+                lastWeatherSync.remove(player);
+                continue;
+            }
+
+            int dimension = player.worldObj.provider.dimensionId;
+            if (!WeatherUtilConfig.listDimensionsWeather.contains(Integer.valueOf(dimension))) {
+                pendingWeatherSync.remove(player);
+                continue;
+            }
+            WeatherManagerServer manager = (WeatherManagerServer) lookupDimToWeatherMan.get(Integer.valueOf(dimension));
+            if (manager == null) {
+                continue;
+            }
+
+            SyncRequestState previous = lastWeatherSync.get(player);
+            if (previous != null && !canAcceptWeatherSync(syncRequestTick, dimension, previous.dimension, previous.tick)) {
+                pendingWeatherSync.remove(player);
+                continue;
+            }
+            pendingWeatherSync.remove(player);
+            lastWeatherSync.put(player, new SyncRequestState(dimension, syncRequestTick));
+            manager.playerJoinedServerSyncFull(player);
+        }
+    }
+
+    static boolean canAcceptWeatherSync(long tick, int dimension, int previousDimension, long previousTick) {
+        return dimension != previousDimension || tick - previousTick >= 100L;
+    }
+
+    public static void removeWeatherSyncRequest(EntityPlayerMP player) {
+        if (player != null) {
+            pendingWeatherSync.remove(player);
+            lastWeatherSync.remove(player);
+        }
+    }
+
     public static void initialize() {
         weather2.integration.IntegrationManager.logDiagnosticSummary();
         if (lookupDimToWeatherMan.get(Integer.valueOf(0)) == null) {
@@ -258,6 +327,9 @@ public class ServerTickHandler {
 
         StormObject.lastUsedStormID = 0L;
         resetSavedStormIdsScan();
+        pendingWeatherSync.clear();
+        lastWeatherSync.clear();
+        syncRequestTick = 0L;
         serverThread = null;
 
     }

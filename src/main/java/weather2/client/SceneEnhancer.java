@@ -53,14 +53,15 @@ import weather2.weathersystem.wind.WindManager;
 @SideOnly(Side.CLIENT)
 public class SceneEnhancer implements Runnable {
 
-    public World lastWorldDetected = null;
+    private static final Object SPAWN_QUEUE_LOCK = new Object();
+    public volatile World lastWorldDetected = null;
     public static ParticleBehaviors pm;
     public static List spawnQueueNormal = new ArrayList();
     public static List spawnQueue = new ArrayList();
     public static long threadLastWorldTickTime;
     public static int lastTickFoundBlocks;
     public static long lastTickAmbient;
-    public static long lastTickAmbientThreaded;
+    public static volatile long lastTickAmbientThreaded;
     public static ArrayList soundLocations = new ArrayList();
     public static HashMap soundTimeLocations = new HashMap();
     public static Block SOUNDMARKER_WATER = Blocks.water;
@@ -102,12 +103,7 @@ public class SceneEnhancer implements Runnable {
     public void tickClientThreaded() {
         Minecraft mc = FMLClientHandler.instance()
             .getClient();
-        if (mc.theWorld != null && this.lastWorldDetected != mc.theWorld) {
-            this.lastWorldDetected = mc.theWorld;
-            this.reset();
-        }
-
-        if (mc.theWorld != null && mc.thePlayer != null
+        if (mc.theWorld != null && mc.theWorld == this.lastWorldDetected && mc.thePlayer != null
             && WeatherUtilConfig.listDimensionsWindEffects
                 .contains(Integer.valueOf(mc.theWorld.provider.dimensionId))) {
             this.profileSurroundings();
@@ -120,10 +116,20 @@ public class SceneEnhancer implements Runnable {
         try {
             if (lastTickAmbient < System.currentTimeMillis()) {
                 lastTickAmbient = System.currentTimeMillis() + 500L;
-                Minecraft ex = FMLClientHandler.instance()
+                Minecraft mc = FMLClientHandler.instance()
                     .getClient();
-                WorldClient worldRef = ex.theWorld;
-                EntityClientPlayerMP player = ex.thePlayer;
+                WorldClient worldRef = mc.theWorld;
+                EntityClientPlayerMP player = mc.thePlayer;
+                if (worldRef == null || player == null || worldRef != this.lastWorldDetected) {
+                    return;
+                }
+                List locations;
+                HashMap playTimes;
+                synchronized (SPAWN_QUEUE_LOCK) {
+                    locations = new ArrayList(soundLocations);
+                    playTimes = new HashMap(soundTimeLocations);
+                }
+                List originalLocations = new ArrayList(locations);
                 byte size = 32;
                 int hsize = size / 2;
                 int curX = (int) player.posX;
@@ -131,26 +137,26 @@ public class SceneEnhancer implements Runnable {
                 int curZ = (int) player.posZ;
                 Random rand = new Random();
 
-                for (int i = 0; i < soundLocations.size(); ++i) {
-                    ChunkCoordinatesBlock cCor = (ChunkCoordinatesBlock) soundLocations.get(i);
+                for (int i = 0; i < locations.size(); ++i) {
+                    ChunkCoordinatesBlock cCor = (ChunkCoordinatesBlock) locations.get(i);
                     if (Math.sqrt((double) cCor.getDistanceSquared(curX, curY, curZ)) > (double) size) {
-                        soundLocations.remove(i--);
-                        soundTimeLocations.remove(cCor);
+                        locations.remove(i--);
+                        playTimes.remove(cCor);
                     } else {
                         Block block = getBlock(worldRef, cCor.posX, cCor.posY, cCor.posZ);
                         if (block != null
                             && (block.getMaterial() == Material.water || block.getMaterial() == Material.leaves)) {
                             long lastPlayTime = 0L;
-                            if (soundTimeLocations.containsKey(cCor)) {
-                                lastPlayTime = ((Long) soundTimeLocations.get(cCor)).longValue();
+                            if (playTimes.containsKey(cCor)) {
+                                lastPlayTime = ((Long) playTimes.get(cCor)).longValue();
                             }
 
                             if (lastPlayTime < System.currentTimeMillis()) {
                                 if (cCor.block == SOUNDMARKER_WATER) {
-                                    soundTimeLocations.put(
+                                    playTimes.put(
                                         cCor,
                                         Long.valueOf(System.currentTimeMillis() + 2500L + (long) rand.nextInt(50)));
-                                    ex.theWorld.playSound(
+                                    worldRef.playSound(
                                         (double) cCor.posX,
                                         (double) cCor.posY,
                                         (double) cCor.posZ,
@@ -160,18 +166,18 @@ public class SceneEnhancer implements Runnable {
                                         false);
                                 } else if (cCor.block == SOUNDMARKER_LEAVES) {
                                     float windSpeed = WindReader.getWindSpeed(
-                                        ex.theWorld,
+                                        worldRef,
                                         Vec3.createVectorHelper(
                                             (double) cCor.posX,
                                             (double) cCor.posY,
                                             (double) cCor.posZ),
                                         WindReader.WindType.EVENT);
                                     if (windSpeed > 0.2F) {
-                                        soundTimeLocations.put(
+                                        playTimes.put(
                                             cCor,
                                             Long.valueOf(
                                                 System.currentTimeMillis() + 12000L + (long) rand.nextInt(50)));
-                                        ex.theWorld.playSound(
+                                        worldRef.playSound(
                                             (double) cCor.posX,
                                             (double) cCor.posY,
                                             (double) cCor.posZ,
@@ -181,17 +187,17 @@ public class SceneEnhancer implements Runnable {
                                             false);
                                     } else {
                                         windSpeed = WindReader.getWindSpeed(
-                                            ex.theWorld,
+                                            worldRef,
                                             Vec3.createVectorHelper(
                                                 (double) cCor.posX,
                                                 (double) cCor.posY,
                                                 (double) cCor.posZ));
-                                        if (ex.theWorld.rand.nextInt(15) == 0) {
-                                            soundTimeLocations.put(
+                                        if (worldRef.rand.nextInt(15) == 0) {
+                                            playTimes.put(
                                                 cCor,
                                                 Long.valueOf(
                                                     System.currentTimeMillis() + 12000L + (long) rand.nextInt(50)));
-                                            ex.theWorld.playSound(
+                                            worldRef.playSound(
                                                 (double) cCor.posX,
                                                 (double) cCor.posY,
                                                 (double) cCor.posZ,
@@ -204,9 +210,23 @@ public class SceneEnhancer implements Runnable {
                                 }
                             }
                         } else {
-                            soundLocations.remove(i);
-                            soundTimeLocations.remove(cCor);
+                            locations.remove(i);
+                            playTimes.remove(cCor);
                         }
+                    }
+                }
+                if (mc.theWorld == worldRef && worldRef == this.lastWorldDetected) {
+                    synchronized (SPAWN_QUEUE_LOCK) {
+                        for (int i = 0; i < soundLocations.size(); ++i) {
+                            Object concurrentLocation = soundLocations.get(i);
+                            if (!originalLocations.contains(concurrentLocation)) {
+                                locations.add(concurrentLocation);
+                            }
+                        }
+                        soundLocations.clear();
+                        soundLocations.addAll(locations);
+                        soundTimeLocations.clear();
+                        soundTimeLocations.putAll(playTimes);
                     }
                 }
             }
@@ -223,9 +243,16 @@ public class SceneEnhancer implements Runnable {
             .getClient();
         WorldClient worldRef = mc.theWorld;
         EntityClientPlayerMP player = mc.thePlayer;
-        new Random();
+        if (worldRef == null || player == null || worldRef != ClientTickHandler.lastWorld) {
+            return;
+        }
         if (lastTickAmbientThreaded < System.currentTimeMillis()) {
             lastTickAmbientThreaded = System.currentTimeMillis() + 500L;
+            List knownLocations;
+            synchronized (SPAWN_QUEUE_LOCK) {
+                knownLocations = new ArrayList(soundLocations);
+            }
+            List discoveredLocations = new ArrayList();
             byte size = 32;
             int hsize = size / 2;
             int curX = (int) player.posX;
@@ -257,9 +284,9 @@ public class SceneEnhancer implements Runnable {
                                         && (var21 & 8) != 0) {
                                         boolean proxFail1 = false;
 
-                                        for (int j1 = 0; j1 < soundLocations.size(); ++j1) {
+                                        for (int j1 = 0; j1 < knownLocations.size(); ++j1) {
                                             if (Math.sqrt(
-                                                (double) ((ChunkCoordinatesBlock) soundLocations.get(j1))
+                                                (double) ((ChunkCoordinatesBlock) knownLocations.get(j1))
                                                     .getDistanceSquared(xx, j, zz))
                                                 < 5.0D) {
                                                 proxFail1 = true;
@@ -268,17 +295,23 @@ public class SceneEnhancer implements Runnable {
                                         }
 
                                         if (!proxFail1) {
-                                            soundLocations
-                                                .add(new ChunkCoordinatesBlock(xx, j, zz, SOUNDMARKER_WATER, 0));
+                                            ChunkCoordinatesBlock location = new ChunkCoordinatesBlock(
+                                                xx,
+                                                j,
+                                                zz,
+                                                SOUNDMARKER_WATER,
+                                                0);
+                                            knownLocations.add(location);
+                                            discoveredLocations.add(location);
                                         }
                                     }
                                 }
                             } else if (ConfigMisc.volWindTreesScale > 0.0D && block.getMaterial() == Material.leaves) {
                                 boolean proxFail = false;
 
-                                for (j = 0; j < soundLocations.size(); ++j) {
+                                for (j = 0; j < knownLocations.size(); ++j) {
                                     if (Math.sqrt(
-                                        (double) ((ChunkCoordinatesBlock) soundLocations.get(j))
+                                        (double) ((ChunkCoordinatesBlock) knownLocations.get(j))
                                             .getDistanceSquared(xx, yy, zz))
                                         < 15.0D) {
                                         proxFail = true;
@@ -287,11 +320,23 @@ public class SceneEnhancer implements Runnable {
                                 }
 
                                 if (!proxFail) {
-                                    soundLocations.add(new ChunkCoordinatesBlock(xx, yy, zz, SOUNDMARKER_LEAVES, 0));
+                                    ChunkCoordinatesBlock location = new ChunkCoordinatesBlock(
+                                        xx,
+                                        yy,
+                                        zz,
+                                        SOUNDMARKER_LEAVES,
+                                        0);
+                                    knownLocations.add(location);
+                                    discoveredLocations.add(location);
                                 }
                             }
                         }
                     }
+                }
+            }
+            if (mc.theWorld == worldRef && worldRef == ClientTickHandler.lastWorld) {
+                synchronized (SPAWN_QUEUE_LOCK) {
+                    soundLocations.addAll(discoveredLocations);
                 }
             }
         }
@@ -299,16 +344,37 @@ public class SceneEnhancer implements Runnable {
     }
 
     public void reset() {
-        if (ExtendedRenderer.rotEffRenderer != null) {
-            for (int i = 0; i < ExtendedRenderer.rotEffRenderer.layers; ++i) {
-                if (ExtendedRenderer.rotEffRenderer.fxLayers[i] != null) {
-                    ExtendedRenderer.rotEffRenderer.fxLayers[i].clear();
+        this.reset(this.lastWorldDetected);
+    }
+
+    public void setWorld(World world) {
+        if (this.lastWorldDetected != world) {
+            this.reset(this.lastWorldDetected);
+            this.lastWorldDetected = world;
+        }
+    }
+
+    private void reset(World oldWorld) {
+        synchronized (SPAWN_QUEUE_LOCK) {
+            spawnQueue.clear();
+            spawnQueueNormal.clear();
+        }
+        if (oldWorld != null) {
+            for (int i = oldWorld.weatherEffects.size() - 1; i >= 0; --i) {
+                Object effect = oldWorld.weatherEffects.get(i);
+                if (effect instanceof Entity && effect.getClass().getName().startsWith("weather2.")) {
+                    oldWorld.weatherEffects.remove(i);
                 }
             }
         }
-
-        this.lastWorldDetected.weatherEffects.clear();
-        WeatherUtilParticle.getFXLayers();
+        synchronized (SPAWN_QUEUE_LOCK) {
+            soundLocations.clear();
+            soundTimeLocations.clear();
+        }
+        lastTickAmbient = 0L;
+        lastTickAmbientThreaded = 0L;
+        threadLastWorldTickTime = Long.MIN_VALUE;
+        lastTickFoundBlocks = 0;
         // NTNH start: reset DSurround rain sync and static precipitation state on world transition
         curPrecipStr = 0.0F;
         curPrecipStrTarget = 0.0F;
@@ -527,14 +593,18 @@ public class SceneEnhancer implements Runnable {
     }
 
     public synchronized void tryParticleSpawning() {
-        if (spawnQueue.size() > 0) {
-            ;
-        }
-
         try {
+            List queuedEntities;
+            List queuedParticles;
+            synchronized (SPAWN_QUEUE_LOCK) {
+                queuedEntities = new ArrayList(spawnQueue);
+                queuedParticles = new ArrayList(spawnQueueNormal);
+                spawnQueue.clear();
+                spawnQueueNormal.clear();
+            }
             int ex;
-            for (ex = 0; ex < spawnQueue.size(); ++ex) {
-                Entity ent = (Entity) spawnQueue.get(ex);
+            for (ex = 0; ex < queuedEntities.size(); ++ex) {
+                Entity ent = (Entity) queuedEntities.get(ex);
                 if (ent != null && ent.worldObj != null) {
                     if (ent instanceof EntityRotFX) {
                         ((EntityRotFX) ent).spawnAsWeatherEffect();
@@ -544,8 +614,8 @@ public class SceneEnhancer implements Runnable {
                 }
             }
 
-            for (ex = 0; ex < spawnQueueNormal.size(); ++ex) {
-                EntityFX var4 = (EntityFX) spawnQueueNormal.get(ex);
+            for (ex = 0; ex < queuedParticles.size(); ++ex) {
+                EntityFX var4 = (EntityFX) queuedParticles.get(ex);
                 if (var4 != null && var4.worldObj != null) {
                     Minecraft.getMinecraft().effectRenderer.addEffect(var4);
                 }
@@ -555,8 +625,6 @@ public class SceneEnhancer implements Runnable {
             var3.printStackTrace();
         }
 
-        spawnQueue.clear();
-        spawnQueueNormal.clear();
     }
 
     public void profileSurroundings() {
@@ -566,8 +634,11 @@ public class SceneEnhancer implements Runnable {
         EntityClientPlayerMP player = FMLClientHandler.instance()
             .getClient().thePlayer;
         WeatherManagerClient manager = ClientTickHandler.weatherManager;
-        if (worldRef != null && player != null && manager != null && manager.windMan != null) {
+        if (worldRef != null && worldRef == mc.theWorld && player != null && manager != null
+            && manager.getWorld() == worldRef && manager.windMan != null) {
             if (threadLastWorldTickTime != worldRef.getTotalWorldTime()) {
+                List localSpawnQueue = new ArrayList();
+                List localSpawnQueueNormal = new ArrayList();
                 threadLastWorldTickTime = worldRef.getTotalWorldTime();
                 Random rand = new Random();
                 byte size = 40;
@@ -652,7 +723,7 @@ public class SceneEnhancer implements Runnable {
                                         var34.setGravity(0.1F);
                                         var34.rotationYaw = (float) rand.nextInt(360);
                                         var34.rotationPitch = (float) rand.nextInt(360);
-                                        spawnQueue.add(var34);
+                                        localSpawnQueue.add(var34);
                                     }
                                 } else if (ConfigMisc.Wind_Particle_waterfall
                                     && player.getDistance((double) xx, (double) yy, (double) zz) < 16.0D
@@ -709,7 +780,7 @@ public class SceneEnhancer implements Runnable {
                                                                 2.0D,
                                                                 3);
                                                             waterP.motionY = 4.5D;
-                                                            spawnQueueNormal.add(waterP);
+                                                            localSpawnQueueNormal.add(waterP);
                                                         }
                                                     }
                                                 } else {
@@ -727,7 +798,7 @@ public class SceneEnhancer implements Runnable {
                                                         6.0D,
                                                         2);
                                                     waterP.motionY = 0.5D;
-                                                    spawnQueueNormal.add(waterP);
+                                                    localSpawnQueueNormal.add(waterP);
                                                 }
                                             }
                                         }
@@ -747,13 +818,19 @@ public class SceneEnhancer implements Runnable {
                                             ParticleBehaviors.setParticleRandoms(entityfx, true, true);
                                             ParticleBehaviors.setParticleFire(entityfx);
                                             entityfx.setMaxAge(100 + rand.nextInt(300));
-                                            spawnQueueNormal.add(entityfx);
+                                            localSpawnQueueNormal.add(entityfx);
                                         }
                                     }
                             }
                         }
                     }
 
+                }
+                if (canPublishForWorld(worldRef, mc.theWorld) && worldRef == this.lastWorldDetected) {
+                    synchronized (SPAWN_QUEUE_LOCK) {
+                        spawnQueue.addAll(localSpawnQueue);
+                        spawnQueueNormal.addAll(localSpawnQueueNormal);
+                    }
                 }
             }
         } else {
@@ -764,6 +841,10 @@ public class SceneEnhancer implements Runnable {
             }
 
         }
+    }
+
+    static boolean canPublishForWorld(World profileWorld, World activeWorld) {
+        return profileWorld != null && profileWorld == activeWorld;
     }
 
     @SideOnly(Side.CLIENT)
