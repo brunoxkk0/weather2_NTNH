@@ -7,6 +7,7 @@ import net.minecraft.client.renderer.texture.TextureMap;
 import net.minecraft.client.renderer.tileentity.TileEntitySpecialRenderer;
 import net.minecraft.tileentity.TileEntity;
 import net.minecraft.util.IIcon;
+import net.minecraft.util.StatCollector;
 import net.minecraft.util.Vec3;
 
 import org.lwjgl.opengl.GL11;
@@ -119,6 +120,62 @@ public class TileEntityWeatherForecastRenderer extends TileEntitySpecialRenderer
             z,
             1,
             RenderManager.instance.playerViewY);
+        int forecastRow = var29;
+        if (tEnt.getWorldObj() != null
+            && tEnt.hasFreshForecastSnapshot(tEnt.getWorldObj().getTotalWorldTime())) {
+            this.renderForecastLine(
+                this.forecastModeText(tEnt.forecastMode), x, y, yOffset, z, forecastRow++);
+            this.renderForecastLine(this.forecastStatusText(tEnt), x, y, yOffset, z, forecastRow++);
+            this.renderForecastLine(
+                StatCollector.translateToLocal("weather2.forecast.max_stage") + " " + tEnt.forecastMaxStage,
+                x,
+                y,
+                yOffset,
+                z,
+                forecastRow++);
+            this.renderForecastLine(
+                StatCollector.translateToLocal("weather2.forecast.land_odds") + " "
+                    + this.forecastOddsText(tEnt.forecastLandOdds) + " / "
+                    + this.forecastOddsText(tEnt.forecastOceanOdds),
+                x,
+                y,
+                yOffset,
+                z,
+                forecastRow++);
+            this.renderForecastLine(
+                StatCollector.translateToLocal("weather2.forecast.progression")
+                    + (tEnt.forecastProgressionOdds > 0
+                        ? StatCollector.translateToLocal("weather2.forecast.progression.one_in")
+                            + " " + tEnt.forecastProgressionOdds
+                        : " " + StatCollector.translateToLocal("weather2.forecast.progression.disabled")),
+                x,
+                y,
+                yOffset,
+                z,
+                forecastRow++);
+            this.renderForecastLine(
+                StatCollector.translateToLocal(
+                    tEnt.forecastCollisionNearby ? "weather2.forecast.collision.yes"
+                        : "weather2.forecast.collision.no"),
+                x,
+                y,
+                yOffset,
+                z,
+                forecastRow++);
+        } else if (tEnt.forecastModeKnown) {
+            this.renderForecastLine(
+                this.forecastModeText(tEnt.forecastMode), x, y, yOffset, z, forecastRow++);
+            this.renderForecastLine(
+                tEnt.shouldShowForecastWaiting(
+                    tEnt.getWorldObj() == null ? 0L : tEnt.getWorldObj().getTotalWorldTime())
+                    ? StatCollector.translateToLocal("weather2.forecast.waiting")
+                    : StatCollector.translateToLocal("weather2.forecast.status.player"),
+                x,
+                y,
+                yOffset,
+                z,
+                forecastRow);
+        }
         float sizeSimBoxDiameter = 2048.0F;
         float sizeRenderBoxDiameter = 3.0F;
         GL11.glPushMatrix();
@@ -276,6 +333,42 @@ public class TileEntityWeatherForecastRenderer extends TileEntitySpecialRenderer
             GL11.glPopMatrix();
         }
 
+    }
+
+    private String forecastModeText(byte mode) {
+        return StatCollector.translateToLocal(
+            mode == TileEntityWeatherForecast.MODE_GLOBAL ? "weather2.forecast.mode.global"
+                : "weather2.forecast.mode.player");
+    }
+
+    private String forecastStatusText(TileEntityWeatherForecast forecast) {
+        if (!forecast.forecastEnabled) {
+            return StatCollector.translateToLocal("weather2.forecast.status.disabled");
+        }
+        if (forecast.forecastMode == TileEntityWeatherForecast.MODE_PLAYER) {
+            return StatCollector.translateToLocal("weather2.forecast.status.player");
+        }
+        if (forecast.forecastRemainingTicks <= 0L) {
+            return StatCollector.translateToLocal("weather2.forecast.status.ready");
+        }
+        return StatCollector.translateToLocal("weather2.forecast.status.remaining") + " "
+            + forecast.forecastRemainingTicks
+            + " " + StatCollector.translateToLocal("weather2.forecast.ticks");
+    }
+
+    private String forecastOddsText(int odds) {
+        return odds > 0 ? StatCollector.translateToLocal("weather2.forecast.odds.one_in") + " " + odds
+            : StatCollector.translateToLocal("weather2.forecast.odds.disabled");
+    }
+
+    private void renderForecastLine(String text, double x, double y, float yOffset, double z, int row) {
+        this.renderLivingLabel(
+            text,
+            x,
+            y + (double) yOffset - (double) (0.1F * (float) row),
+            z,
+            1,
+            RenderManager.instance.playerViewY);
     }
 
     public void renderIcon(double par3, double par5, double par7, int width, int height, float angle, IIcon parIcon) {

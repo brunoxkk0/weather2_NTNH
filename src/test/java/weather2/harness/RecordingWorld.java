@@ -52,6 +52,10 @@ public final class RecordingWorld extends WorldServer {
     public int chunkExistsQueries;
     public int rayTraceQueries;
     public int heightQueriesInUnloadedChunks;
+    public int blockUpdates;
+    public int lastUpdatedX;
+    public int lastUpdatedY;
+    public int lastUpdatedZ;
     public Map<Long, Integer> heightValues;
     public Set<Long> blockedRayEndpoints;
     public Set<Long> unloadedChunks;
@@ -254,7 +258,12 @@ public final class RecordingWorld extends WorldServer {
     public void playSoundEffect(double x, double y, double z, String name, float volume, float pitch) {}
 
     @Override
-    public void markBlockForUpdate(int x, int y, int z) {}
+    public void markBlockForUpdate(int x, int y, int z) {
+        ++this.blockUpdates;
+        this.lastUpdatedX = x;
+        this.lastUpdatedY = y;
+        this.lastUpdatedZ = z;
+    }
 
     @Override
     public void notifyBlocksOfNeighborChange(int x, int y, int z, Block block) {}

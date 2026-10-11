@@ -1,0 +1,17 @@
+weather2.forecast.mode.global=Mode: global
+weather2.forecast.mode.player=Mode: per player
+weather2.forecast.waiting=Waiting for server forecast
+weather2.forecast.status.disabled=Severe weather: disabled
+weather2.forecast.status.ready=Global cooldown: ready
+weather2.forecast.status.remaining=Global cooldown:
+weather2.forecast.status.player=Cooldown: per player
+weather2.forecast.ticks= ticks
+weather2.forecast.max_stage=Max storm stage:
+weather2.forecast.land_odds=Land / ocean odds:
+weather2.forecast.odds.one_in=1 in
+weather2.forecast.odds.disabled=off
+weather2.forecast.progression=Collision progression:
+weather2.forecast.progression.one_in=1 in
+weather2.forecast.progression.disabled=disabled
+weather2.forecast.collision.yes=Opposing storms nearby
+weather2.forecast.collision.no=No loaded collision nearby

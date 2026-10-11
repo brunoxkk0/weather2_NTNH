@@ -1,0 +1,17 @@
+weather2.forecast.mode.global=Modo: global
+weather2.forecast.mode.player=Modo: por jogador
+weather2.forecast.waiting=Aguardando previsão do servidor
+weather2.forecast.status.disabled=Tempestades severas: desativadas
+weather2.forecast.status.ready=Intervalo global: pronto
+weather2.forecast.status.remaining=Intervalo global:
+weather2.forecast.status.player=Intervalo: por jogador
+weather2.forecast.ticks= ticks
+weather2.forecast.max_stage=Estágio máximo:
+weather2.forecast.land_odds=Chance em terra / oceano:
+weather2.forecast.odds.one_in=1 em
+weather2.forecast.odds.disabled=desativada
+weather2.forecast.progression=Progressão por colisão:
+weather2.forecast.progression.one_in=1 em
+weather2.forecast.progression.disabled=desativada
+weather2.forecast.collision.yes=Tempestades opostas próximas
+weather2.forecast.collision.no=Nenhuma colisão carregada próxima
