@@ -130,6 +130,8 @@ public class StormObject {
     public RenderCubeCloud renderBlock;
     public long ticksSinceLastPacketReceived;
     private NBTTagCompound cachedClientNBTState;
+    private transient long lastFunnelRenderTick = Long.MIN_VALUE;
+    private transient double lastFunnelRenderPhase;
 
     public StormObject(WeatherManagerBase parManager) {
         this.pos = Vec3.createVectorHelper(0.0D, (double) static_YPos_layer0, 0.0D);
@@ -388,7 +390,35 @@ public class StormObject {
         if (this.layer == 1) {
             this.renderBlock.doRenderClouds(this, this.pos.xCoord, this.pos.yCoord, this.pos.zCoord, 0.0F, partialTick);
         }
+        if (this.layer == 0 && this.listParticlesFunnel != null && this.manager != null) {
+            World world = this.manager.getWorld();
+            if (world == null) return;
+            long tick = world.getTotalWorldTime();
+            double angularSpeed = this.spinSpeed * Math.PI * 2.0D;
+            double phase = Math.toDegrees(funnelPhase(tick, partialTick, angularSpeed));
+            if (tick != this.lastFunnelRenderTick) {
+                this.lastFunnelRenderTick = tick;
+                this.lastFunnelRenderPhase = 0.0D;
+            }
+            double rotationDelta = phase - this.lastFunnelRenderPhase;
+            if (rotationDelta > 180.0D) rotationDelta -= 360.0D;
+            if (rotationDelta < -180.0D) rotationDelta += 360.0D;
+            for (int i = 0; i < this.listParticlesFunnel.size(); ++i) {
+                EntityRotFX particle = (EntityRotFX) this.listParticlesFunnel.get(i);
+                particle.rotationYaw += (float) rotationDelta;
+            }
+            this.lastFunnelRenderPhase = phase;
+        }
 
+    }
+
+    static double funnelPhase(long tick, float partialTick, double angularSpeed) {
+        double partial = Float.isNaN(partialTick) ? 0.0D : Math.max(0.0D, Math.min(1.0D, partialTick));
+        if (Double.isNaN(angularSpeed) || Double.isInfinite(angularSpeed)) return 0.0D;
+        double phase = ((double) tick + partial) * angularSpeed;
+        if (Double.isNaN(phase) || Double.isInfinite(phase)) return 0.0D;
+        phase %= Math.PI * 2.0D;
+        return phase < 0.0D ? phase + Math.PI * 2.0D : phase;
     }
 
     public void tick() {
