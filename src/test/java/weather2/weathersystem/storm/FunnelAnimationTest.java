@@ -34,16 +34,7 @@ public class FunnelAnimationTest {
     }
 
     @Test
-    public void phaseIsContinuousAcrossTicksAndClampsPartialTick() {
-        assertEquals(StormObject.funnelPhase(10L, 1.0F, 0.12D), StormObject.funnelPhase(11L, 0.0F, 0.12D), 0.0D);
-        assertEquals(StormObject.funnelPhase(5L, 0.0F, 0.12D), StormObject.funnelPhase(5L, -4.0F, 0.12D), 0.0D);
-        assertEquals(StormObject.funnelPhase(6L, 0.0F, 0.12D), StormObject.funnelPhase(5L, 4.0F, 0.12D), 0.0D);
-        assertEquals(StormObject.funnelPhase(5L, 0.0F, 0.12D), StormObject.funnelPhase(5L, Float.NaN, 0.12D), 0.0D);
-        assertEquals(StormObject.funnelPhase(15L, 0.25F, 0.12D), StormObject.funnelPhase(15L, 0.25F, 0.12D), 0.0D);
-    }
-
-    @Test
-    public void renderInterpolationRotatesFunnelWithoutChangingSimulationState() {
+    public void renderingKeepsFunnelParticleOrientationAcrossFramesAndTicks() {
         RecordingWorld world = RecordingWorld.create();
         world.isRemote = true;
         world.worldTime = 10L;
@@ -62,14 +53,21 @@ public class FunnelAnimationTest {
         particle.setMaxAge(120);
         WeatherUtilParticle.setParticleAge(particle, 17);
         storm.listParticlesFunnel.add(particle);
+        particle.rotationYaw = 37.0F;
+        particle.rotationPitch = -30.0F;
         float initialYaw = particle.rotationYaw;
 
-        storm.tickRender(0.0F);
-        float firstYaw = particle.rotationYaw;
-        storm.tickRender(0.5F);
-
-        assertTrue(Math.abs(particle.rotationYaw - firstYaw) > 1.0F);
-        assertTrue(Math.abs(firstYaw - initialYaw) > 1.0F);
+        for (int tick = 10; tick < 13; tick++) {
+            world.worldTime = tick;
+            for (float partialTick : new float[] { 0.0F, 0.5F, 0.5F, 1.0F }) {
+                storm.tickRender(partialTick);
+                assertEquals(initialYaw, particle.rotationYaw, 0.0F);
+                assertEquals(-30.0F, particle.rotationPitch, 0.0F);
+                assertEquals(3.0D, particle.posX, 0.0D);
+                assertEquals(100.0D, particle.posY, 0.0D);
+                assertEquals(4.0D, particle.posZ, 0.0D);
+            }
+        }
         assertEquals(StormObject.STATE_STAGE3, storm.levelCurIntensityStage);
         assertEquals(45, storm.tornadoRemainingTicks);
         assertTrue(storm.pullPlayers);
