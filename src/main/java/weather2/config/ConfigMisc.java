@@ -31,8 +31,6 @@ public class ConfigMisc implements IConfigCategory {
     @ConfigComment({
         "How often in ticks to sync high-wind storm data between server and clients. Might want to increase this for dedicated servers." })
     public static int tickerRateSyncWeatherHighWind = 2;
-    @ConfigComment({ "How often in ticks to sync volcano data between server and clients." })
-    public static int tickerRateSyncVolcanos = 40;
     @ConfigComment({ "How often in ticks to sync wind data and do other IMC stuff between server and clients." })
     public static int tickerRateSyncWindAndIMC = 60;
     @ConfigComment({

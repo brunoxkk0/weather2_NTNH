@@ -42,18 +42,17 @@ public class CommandWeather2 extends CommandBase {
     }
 
     public void processCommand(ICommandSender var1, String[] var2) {
-        // NTNH start: command aliases normalization (/weather2 kill, /weather2 spawn, etc.)
+        // NTNH start: command aliases normalization (/weather2 kill|killall|clear -> storm killall, no args -> help)
         var2 = weather2.compat.WeatherNTNHHooks.normalizeCommandArgs(var2);
         // NTNH end
+        if (var2[0].equalsIgnoreCase("help")) {
+            var1.addChatMessage(new ChatComponentText(this.getCommandUsage(var1)));
+            return;
+        }
         if (var2 != null && var2.length > 0
             && (var2[0].equalsIgnoreCase("status") || var2[0].equalsIgnoreCase("diag")
                 || var2[0].equalsIgnoreCase("diagnostics"))) {
             sendDiagnostics(var1);
-            return;
-        }
-
-        if (var2 != null && var2.length > 0 && var2[0].equalsIgnoreCase("volcano")) {
-            var1.addChatMessage(new ChatComponentText("Volcanoes are disabled in this version."));
             return;
         }
 
@@ -62,7 +61,7 @@ public class CommandWeather2 extends CommandBase {
             return;
         }
 
-        String helpMsgStorm = "Syntax: storm create <rain/thunder/wind/spout/hail/F0..F5/C0..C5> | storm killall | tornado <spawn/list/cancel/pull>";
+        String helpMsgStorm = this.getCommandUsage(var1);
 
         try {
             if (var1 instanceof EntityPlayerMP) {
@@ -172,6 +171,8 @@ public class CommandWeather2 extends CommandBase {
                 } else {
                     CoroUtil.sendPlayerMsg((EntityPlayerMP) var1, helpMsgStorm);
                 }
+            } else {
+                var1.addChatMessage(new ChatComponentText("Storm commands must be run by a player. " + helpMsgStorm));
             }
         } catch (Exception var9) {
             System.out.println("Exception handling Weather2 command");
@@ -365,13 +366,27 @@ public class CommandWeather2 extends CommandBase {
     }
 
     public String getCommandUsage(ICommandSender icommandsender) {
-        return "/weather2 tornado spawn <dim> <x> <z> <F0..F5> <durationTicks> [pullPlayers] [pullLivingEntities] | list <dim> | cancel <dim> <id> | pull <dim> <id> <true|false> <true|false>";
+        return "/weather2 tornado spawn <dim> <x> <z> <F0..F5> <durationTicks> [pullPlayers] [pullLivingEntities] | list <dim> | cancel <dim> <id> | pull <dim> <id> <true|false> <true|false>"
+            + " | /weather2 storm create <rain|thunder|wind|spout|hail|F0..F5|C0..C5|hurricane> [progress] | storm killall (alias: kill, killall, clear)"
+            + " | /weather2 status";
     }
 
     @Override
     public List addTabCompletionOptions(ICommandSender sender, String[] args) {
         if (args.length == 1) {
-            return getListOfStringsMatchingLastWord(args, new String[] { "tornado", "storm", "status", "diag" });
+            return getListOfStringsMatchingLastWord(
+                args,
+                new String[] { "tornado", "storm", "status", "diag", "help", "kill" });
+        }
+        if (args.length == 2 && args[0].equalsIgnoreCase("storm")) {
+            return getListOfStringsMatchingLastWord(args, new String[] { "create", "killall" });
+        }
+        if (args.length == 3 && args[0].equalsIgnoreCase("storm")
+            && (args[1].equalsIgnoreCase("create") || args[1].equalsIgnoreCase("spawn"))) {
+            return getListOfStringsMatchingLastWord(
+                args,
+                new String[] { "rain", "thunder", "wind", "spout", "hail", "hurricane", "F0", "F1", "F2", "F3", "F4",
+                    "F5", "C0", "C1", "C2", "C3", "C4", "C5" });
         }
         if (args.length == 2 && args[0].equalsIgnoreCase("tornado")) {
             return getListOfStringsMatchingLastWord(args, new String[] { "spawn", "list", "cancel", "pull" });
